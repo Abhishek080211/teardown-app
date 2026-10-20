@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Teardown</title>
+<style>
+:root{--ink:#16181d;--mut:#5d6573;--bg:#faf8f4;--card:#fff;--line:#e8e3da;
+--a:#e4572e;--b:#2a7de1;--c1:#e4572e;--c2:#f2a900;--c3:#2e9e6b;--c4:#2a7de1;--c5:#7a4fd6;--c6:#d6336c;--c7:#0e9aa7;--c8:#16181d}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:900px;margin:0 auto;padding:0 16px}
+h1,h2,h3{line-height:1.15;margin:0}
+.logo{font-weight:800;letter-spacing:-.02em}
+.logo b{color:var(--a)}
+/* landing */
+.hero{padding:56px 0 24px}
+.hero h1{font-size:clamp(2.2rem,7vw,3.6rem);letter-spacing:-.03em;margin:12px 0}
+.hero p{color:var(--mut);max-width:560px;font-size:1.1rem}
+form{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;display:grid;gap:14px;margin:16px 0 40px;box-shadow:0 6px 24px #0001}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:620px){.row{grid-template-columns:1fr}}
+label{font-size:.85rem;font-weight:600;display:grid;gap:6px}
+input{font:inherit;padding:12px;border:1.5px solid var(--line);border-radius:10px;background:#fff}
+input:focus{outline:none;border-color:var(--b)}
+button{font:inherit;font-weight:700;border:0;border-radius:10px;padding:14px 18px;background:var(--ink);color:#fff;cursor:pointer}
+button:disabled{opacity:.5;cursor:wait}
+.btn2{background:#fff;color:var(--ink);border:1.5px solid var(--ink)}
+.err{color:#b3261e;font-weight:600}
+.loading{text-align:center;padding:80px 0}
+.spin{width:44px;height:44px;border:5px solid var(--line);border-top-color:var(--a);border-radius:50%;margin:0 auto 18px;animation:s 1s linear infinite}
+@keyframes s{to{transform:rotate(360deg)}}
+.hidden{display:none}
+/* report */
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 0;flex-wrap:wrap}
+.title{padding:24px 0 8px}
+.title h1{font-size:clamp(1.8rem,6vw,3rem);letter-spacing:-.03em}
+.vs{color:var(--mut);font-weight:400}
+.ca{color:var(--a)}.cb{color:var(--b)}
+.meta{color:var(--mut);font-size:.85rem}
+section{margin:0 0 8px}
+.band{display:flex;align-items:center;gap:12px;padding:14px 18px;border-radius:12px;color:#fff;margin:36px 0 16px;break-after:avoid}
+.band .n{font-size:1.8rem;font-weight:800;opacity:.9}
+.band h2{font-size:1.25rem}
+.band small{display:block;opacity:.85;font-size:.8rem}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:620px){.two{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-top:5px solid var(--a);border-radius:12px;padding:16px;break-inside:avoid}
+.card.b{border-top-color:var(--b)}
+.card h3{font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.card.a h3{color:var(--a)}.card.b h3{color:var(--b)}
+.card p{margin:6px 0}
+.lede{font-size:1.05rem;margin:14px 0}
+.kv{font-size:.9rem;color:var(--mut)}
+.kv b{color:var(--ink)}
+.pill{display:inline-block;background:#f1ede4;border-radius:99px;padding:2px 10px;margin:2px 4px 2px 0;font-size:.82rem}
+.big{font-size:clamp(2.6rem,11vw,4.4rem);font-weight:800;letter-spacing:-.04em;line-height:1}
+.card.a .big{color:var(--a)}.card.b .big{color:var(--b)}
+.unit{color:var(--mut);font-size:.85rem;margin:4px 0 10px}
+.verdict{display:inline-block;font-weight:700;font-size:.78rem;padding:3px 10px;border-radius:99px;color:#fff;text-transform:uppercase;letter-spacing:.05em}
+.v-match{background:#2e9e6b}.v-partial{background:#e0a100}.v-mismatch{background:#d6336c}.v-unverified{background:#6b7280}
+blockquote{margin:8px 0;padding:8px 12px;border-left:4px solid var(--line);background:#faf8f4;font-style:italic}
+.panel{font-size:.85rem;background:#faf8f4;border-radius:8px;padding:8px 10px;margin:8px 0;word-break:break-word}
+.notfound{background:#fff4e5;border:1px dashed #e0a100;color:#7a5200}
+.tw{overflow-x:auto}
+table{width:100%;min-width:560px;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+th,td{padding:12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top;font-size:.95rem}
+th{background:#f1ede4;font-size:.8rem;text-transform:uppercase;letter-spacing:.06em}
+tr:last-child td{border-bottom:0}
+.prod{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:12px 0}
+.prod h3{font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.prod .pn{font-weight:700}
+.prod li{margin:6px 0}
+.sw{display:inline-block;background:#fff4e5;border:1px solid #e0a100;color:#7a5200;border-radius:8px;padding:4px 8px;font-size:.85rem;margin-top:4px}
+.pname{font-size:.8rem;font-weight:600;margin:0 0 6px;color:var(--ink)}
+.hl{background:linear-gradient(135deg,#fff3ec,#fff);border:1px solid var(--line);border-left:6px solid var(--c7);border-radius:12px;padding:16px}
+ol.moves{padding-left:20px}ol.moves li{margin:8px 0}
+.srcs{font-size:.8rem;color:var(--mut);word-break:break-all}
+.srcs a{color:var(--mut)}
+footer{margin:40px 0;color:var(--mut);font-size:.8rem}
+@media print{
+ body{background:#fff;font-size:12px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+ .noprint{display:none!important}
+ .band{margin:20px 0 10px}
+ @page{margin:14mm}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div id="landing">
+  <div class="hero">
+    <div class="logo">Tear<b>down</b></div>
+    <h1>Two brands. One honest comparison.</h1>
+    <p>Pick two Indian health-food or clean-label brands. We research the web, read the actual ingredient panels, and return an eight-part competitor teardown built for founders.</p>
+  </div>
+  <form id="form">
+    <div class="row">
+      <label>Brand A<input name="brandA" required maxlength="80" placeholder="e.g. RiteBite Max Protein"></label>
+      <label>Brand B<input name="brandB" required maxlength="80" placeholder="e.g. The Whole Truth"></label>
+    </div>
+    <label>Product category<input name="category" required maxlength="80" placeholder="e.g. protein bars, muesli, sunscreen"></label>
+    <button id="go" type="submit">Generate teardown</button>
+    <div id="formerr" class="err hidden"></div>
+  </form>
+</div>
+
+<div id="loading" class="loading hidden">
+  <div class="spin"></div>
+  <h2>Researching…</h2>
+  <p id="status" class="meta">Starting research…</p>
+  <p class="meta">This usually takes 1–3 minutes. Please keep this tab open.</p>
+</div>
+
+<div id="report" class="hidden"></div>
+</div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const show = (id) => ["landing","loading","report"].forEach((x) => $("#"+x).classList.toggle("hidden", x !== id));
+
+$("#form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const body = Object.fromEntries(new FormData(e.target));
+  $("#formerr").classList.add("hidden");
+  $("#go").disabled = true;
+  try {
+    const r = await fetch("/api/report", {method:"POST", headers:{"content-type":"application/json"}, body: JSON.stringify(body)});
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || "Something went wrong");
+    location.hash = "r=" + d.id;
+    poll(d.id);
+  } catch (err) {
+    $("#formerr").textContent = err.message;
+    $("#formerr").classList.remove("hidden");
+  } finally { $("#go").disabled = false; }
+});
+
+async function poll(id) {
+  show("loading");
+  while (true) {
+    let d;
+    try {
+      const r = await fetch("/api/report/" + id);
+      d = await r.json();
+      if (!r.ok) throw new Error(d.error);
+    } catch (err) { return fail(err.message); }
+    if (d.status === "done") { render(d.report); return; }
+    if (d.status === "error") return fail(d.error);
+    $("#status").textContent = d.message || "Working…";
+    await new Promise((r) => setTimeout(r, 2500));
+  }
+}
+function fail(msg) {
+  show("landing");
+  location.hash = "";
+  $("#formerr").textContent = "Report failed: " + msg;
+  $("#formerr").classList.remove("hidden");
+}
+
+const VERDICT = {match:"Claim holds", partial:"Partly holds", mismatch:"Mismatch", unverified:"Unverified"};
+const NF = '<span class="verdict v-unverified">Not verified</span>';
+const val = (v, fallback = "Not verified") => (v === null || v === undefined || v === "" ? `<i>${fallback}</i>` : esc(v));
+
+function band(n, color, title, sub) {
+  return `<div class="band" style="background:${color}"><span class="n">${n}</span><div><h2>${esc(title)}</h2><small>${esc(sub)}</small></div></div>`;
+}
+function two(a, b, fa, fb) { return `<div class="two"><div class="card a"><h3>${esc(a)}</h3>${fa}</div><div class="card b"><h3>${esc(b)}</h3>${fb}</div></div>`; }
+
+function prodBlock(r) {
+  const ps = r.products || [], ps0 = r.product_selection || {};
+  if (!ps.length) return "";
+  const li = (p, cls) => `<li><span class="${cls}">${esc(p.brand)}:</span> <span class="pn">${esc(p.product_name)}</span>${p.retailer ? ` <span class="kv">(${esc(p.retailer)})</span>` : ""}${p.switched ? `<div class="sw"><b>Product switched.</b> Locked product was “${esc(p.locked_name)}”. ${esc(p.switch_reason)}</div>` : ""}</li>`;
+  const note = ps0.reused ? `Same products as the earlier run (locked ${new Date(ps0.selected_at).toLocaleDateString("en-IN")}).` : "Products chosen for this comparison and locked for future runs.";
+  return `<div class="prod"><h3>Products compared</h3><ul style="margin:0;padding-left:18px">${li(ps[0],"ca")}${li(ps[1],"cb")}</ul>${ps0.comparison_basis ? `<p class="kv" style="margin:8px 0 0">${esc(ps0.comparison_basis)}</p>` : ""}<p class="kv" style="margin:4px 0 0">${note}</p></div>`;
+}
+
+function render(r) {
+  const A = r.brands?.[0]?.name || "Brand A", B = r.brands?.[1]?.name || "Brand B";
+  const g = (k) => r[k] || {};
+  const pos = g("positioning"), gr = g("growth"), ch = g("channels"), hm = g("hero_metric"), cl = g("claims_vs_reality"), se = g("sentiment"), ws = g("white_space"), tk = g("takeaway");
+  const growth = (x = {}) => `<p class="kv"><b>Founded:</b> ${val(x.founded)}</p><p class="kv"><b>Ownership:</b> ${val(x.ownership)}</p><p class="kv"><b>Funding:</b> ${val(x.funding)}</p><p>${esc(x.note)}</p>`;
+  const chan = (x = {}) => `<p>${esc(x.summary)}</p>${(x.channels||[]).map((c)=>`<span class="pill">${esc(c)}</span>`).join("")}`;
+  const pname = (i) => `<p class="pname">${esc((r.products||[])[i]?.product_name)}</p>`;
+  const hero = (x = {}, i) => `${pname(i)}<div class="big">${val(x.display, "n/a")}</div><div class="unit">${esc(hm.unit)}</div><p class="kv">${esc(x.basis)}</p>`;
+  const claim = (x = {}, i) => {
+    const v = ["match","partial","mismatch","unverified"].includes(x.verdict) ? x.verdict : "unverified";
+    const panel = x.ingredient_panel
+      ? `<div class="panel"><b>Ingredient panel:</b> ${esc(x.ingredient_panel)}</div>`
+      : `<div class="panel notfound"><b>No verifiable ingredient panel found.</b> We did not guess one.</div>`;
+    return `${pname(i)}<p><span class="verdict v-${v}">${VERDICT[v]}</span></p><p class="kv"><b>Headline claim</b></p><blockquote>${esc(x.headline_claim)}</blockquote>${panel}<p>${esc(x.explanation)}</p>`;
+  };
+  const sent = (x = {}) => `<tr><td>${esc(x.name)}<br><span class="kv">${esc(x.product)}</span></td><td>${esc(x.platform) || "—"}</td><td>${x.rating == null ? "<i>Not verified</i>" : "<b>" + esc(x.rating) + "</b> / 5"}</td><td>${x.review_count == null ? "<i>Not verified</i>" : Number(x.review_count).toLocaleString("en-IN")}</td><td>${esc(x.note)}</td></tr>`;
+  const gaps = (r.data_gaps || []);
+  $("#report").innerHTML = `
+  <div class="top noprint"><div class="logo">Tear<b>down</b></div><div><button class="btn2" onclick="location.hash='';location.reload()">New teardown</button> <button onclick="window.print()">Download as PDF</button></div></div>
+  <div class="title">
+    <div class="meta">TEARDOWN · ${esc(r.category)}</div>
+    <h1><span class="ca">${esc(A)}</span> <span class="vs">vs</span> <span class="cb">${esc(B)}</span></h1>
+    <div class="meta">Generated ${new Date(r.generated_at).toLocaleString("en-IN")} · web-researched; prices and ratings change.</div>
+  </div>
+
+  ${prodBlock(r)}
+
+  <section>${band(1,"var(--c1)","Two Brands, Two Plays","Positioning contrast")}
+    ${two(A,B,`<p>${esc(pos.brand_a?.play)}</p>`,`<p>${esc(pos.brand_b?.play)}</p>`)}
+    <p class="lede">${esc(pos.contrast)}</p></section>
+
+  <section>${band(2,"var(--c2)","Growth & Ownership","Founding year, funding and ownership")}
+    ${two(A,B,growth(gr.brand_a),growth(gr.brand_b))}</section>
+
+  <section>${band(3,"var(--c3)","Channel Reach","Distribution")}
+    ${two(A,B,chan(ch.brand_a),chan(ch.brand_b))}</section>
+
+  <section>${band(4,"var(--c4)","Hero Metric",hm.name || "Per-unit cost")}
+    ${two(A,B,hero(hm.brand_a,0),hero(hm.brand_b,1))}
+    <p class="lede">${esc(hm.takeaway)}</p></section>
+
+  <section>${band(5,"var(--c5)","Claims vs Ingredient Reality","Headline claim checked against the real label")}
+    ${two(A,B,claim(cl.brand_a,0),claim(cl.brand_b,1))}</section>
+
+  <section>${band(6,"var(--c6)","Buyer Sentiment","Public ratings and review volume")}
+    <div class="tw"><table><thead><tr><th>Brand</th><th>Platform</th><th>Rating</th><th>Reviews</th><th>Notes</th></tr></thead><tbody>
+    ${sent({...se.brand_a, name: A, product: (r.products||[])[0]?.product_name})}${sent({...se.brand_b, name: B, product: (r.products||[])[1]?.product_name})}</tbody></table></div></section>
+
+  <section>${band(7,"var(--c7)","Market White Space","The unclaimed pricing / positioning gap")}
+    <div class="hl"><p style="margin-top:0">${esc(ws.summary)}</p><p style="margin-bottom:0"><b>The gap:</b> ${esc(ws.gap)}</p></div></section>
+
+  <section>${band(8,"var(--c8)","Strategic Takeaway","What this means for a founder positioning a new product")}
+    <p class="lede">${esc(tk.summary)}</p>
+    <ol class="moves">${(tk.moves||[]).map((m)=>`<li>${esc(m)}</li>`).join("")}</ol></section>
+
+  <footer>
+    ${gaps.length ? `<p><b>Data gaps:</b></p><ul>${gaps.map((x)=>`<li>${esc(x)}</li>`).join("")}</ul>` : ""}
+    <p><b>Sources consulted</b></p>
+    <div class="srcs">${(r.sources||[]).map((s)=>`<div><a href="${esc(s.url)}" rel="noopener">${esc(s.title)}</a></div>`).join("") || "None recorded."}</div>
+    <p>AI-generated from public web data; verify before making decisions.</p>
+  </footer>`;
+  show("report");
+  window.scrollTo(0, 0);
+}
+
+const m = location.hash.match(/r=([\w-]+)/);
+if (m) poll(m[1]);
+</script>
+</body>
+</html>

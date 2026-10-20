@@ -1,0 +1,1 @@
+{"name":"teardown","version":"1.0.0","type":"module","scripts":{"start":"node server.mjs"},"dependencies":{"@anthropic-ai/sdk":"^0.135.0"}}
