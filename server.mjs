@@ -11,8 +11,12 @@ const PORT = process.env.PORT || 3000;
 // Live app runs on Sonnet 5.5 only (never Fable/Opus).
 const MODEL = "claude-sonnet-5-5";
 const MAX_CONTINUES = 6;
+const SELECT_MAX_SEARCHES = 24; // product selection: verify price, pack and spec for two brands
+const RESEARCH_MAX_SEARCHES = 12;
 
-const client = new Anthropic();
+// The deployment secret is TEARDOWN_API_KEY; ANTHROPIC_API_KEY is only a fallback for local use.
+const API_KEY = process.env.TEARDOWN_API_KEY || process.env.ANTHROPIC_API_KEY;
+const client = new Anthropic({ apiKey: API_KEY });
 
 const SYSTEM = `You are a competitive-intelligence analyst producing a founder-facing teardown of two Indian health-food / clean-label brands in one product category.
 
@@ -26,7 +30,7 @@ Research rules:
 
 Product lock (critical): the user message gives you ONE locked, specific product (SKU) per brand. Compare exactly those products and nothing else.
 - Take price, pack size, protein/spec, ingredient panel, rating and review count from the locked product's listing (the retailer and URL given) or, failing that, from the same named product on another retailer or the brand site. Never substitute a different flavour, size, pack count or product line because it surfaced in search.
-- Pack counts matter: compute the hero metric per single unit of the locked product, and show the maths.
+- The locked product's price, pack count and per-unit spec are fixed inputs, already verified. The server computes the hero metric from them. Do NOT recompute it, do NOT report a different price or spec, and do NOT put any hero-metric number in hero_metric - only the "takeaway" prose, which may quote the computed values given in the user message exactly.
 - If the locked product cannot be found or verified at all, you may use the closest equivalent, but you MUST set "switched": true and explain why in "switch_reason", and print the replacement's exact name. Otherwise "switched" is false and "product_name" is the locked name verbatim.
 - Ratings and review counts must come from the locked product's listing; state which retailer.
 
@@ -36,7 +40,7 @@ Output: after researching, reply with ONE JSON object and nothing else (no markd
   "category": string,
   "brands": [ {"name": string}, {"name": string} ],
   "products": [   // exactly two, brand A then brand B
-    {"brand": string, "product_name": string, "retailer": string|null, "listing_url": string|null, "price_inr": number|null, "price_basis": string, "switched": boolean, "switch_reason": string|null}
+    {"brand": string, "product_name": string, "retailer": string|null, "listing_url": string|null, "switched": boolean, "switch_reason": string|null}
   ],
   "positioning": {
     "brand_a": {"play": string},   // 1-2 sentences: who they target, what they stand for
@@ -52,11 +56,7 @@ Output: after researching, reply with ONE JSON object and nothing else (no markd
     "brand_b": {"summary": string, "channels": [string]}
   },
   "hero_metric": {
-    "name": string,                // e.g. "Price per 10g protein" - the single most comparable spec for the category
-    "unit": string,                // e.g. "₹ per 10g protein"
-    "brand_a": {"value": number|null, "display": string, "basis": string},  // basis shows the maths: price, pack size, spec
-    "brand_b": {"value": number|null, "display": string, "basis": string},
-    "takeaway": string
+    "takeaway": string             // 1-2 sentences comparing the two computed values given in the user message; quote them exactly
   },
   "claims_vs_reality": {
     "brand_a": {"headline_claim": string, "ingredient_panel": string|null, "verdict": "match"|"partial"|"mismatch"|"unverified", "explanation": string},
@@ -82,6 +82,7 @@ function extractJson(text) {
 async function searchChat({ system, user, maxUses, onStatus, sources }) {
   const messages = [{ role: "user", content: user }];
   let searches = 0;
+  let limitHit = false;
   let message;
   for (let i = 0; i <= MAX_CONTINUES; i++) {
     const stream = client.messages.stream({
@@ -101,9 +102,10 @@ async function searchChat({ system, user, maxUses, onStatus, sources }) {
     });
     message = await stream.finalMessage();
     for (const b of message.content) {
-      if (b.type === "web_search_tool_result" && Array.isArray(b.content)) {
+      if (b.type !== "web_search_tool_result") continue;
+      if (Array.isArray(b.content)) {
         for (const r of b.content) if (r.url && !sources.has(r.url)) sources.set(r.url, r.title || r.url);
-      }
+      } else if (b.content?.error_code === "max_uses_exceeded") limitHit = true;
     }
     if (message.stop_reason === "pause_turn") {
       messages.push({ role: "assistant", content: message.content });
@@ -114,7 +116,8 @@ async function searchChat({ system, user, maxUses, onStatus, sources }) {
   }
   if (message.stop_reason === "refusal") throw new Error("The model declined this request.");
   if (message.stop_reason === "pause_turn") throw new Error("Research took too long; please try again.");
-  return message.content.filter((b) => b.type === "text").map((b) => b.text).join("");
+  const text = message.content.filter((b) => b.type === "text").map((b) => b.text).join("");
+  return { text, searches, limitHit, maxUses };
 }
 
 // ---- Phase 1: commit to one named SKU per brand, persisted so reruns compare the same products ----
@@ -129,44 +132,84 @@ function saveSkus(db) {
   fs.writeFileSync(SKU_FILE, JSON.stringify(db, null, 2));
 }
 
-const SELECT_SYSTEM = `You choose which exact products to compare for a competitor teardown of two Indian brands in one category.
+const SELECT_SYSTEM = `You choose which exact products to compare for a competitor teardown of two Indian brands in one category, and you capture the raw numbers for the category's hero metric. You do NOT calculate the metric; a program does that from your raw numbers.
 
-Pick ONE specific, named product (SKU) per brand, so that the two are genuinely comparable:
-- Same product tier/spec across brands (e.g. both ~10g-protein, ~50g single bars), and the brand's standard, mainstream, widely stocked version - not a limited edition, combo or variety pack.
-- A single named flavour/variant with a unit size, written exactly as it appears on a real listing, e.g. "Yoga Bar Daily 10g Protein Bar, Dark Chocolate & Cranberry, 50g". Set "unit_size" to the size of ONE unit.
-- Prefer a listing on Amazon.in (otherwise another major Indian retailer or the brand site) that you actually saw via search, and give its URL. Pick the best-known, most-reviewed qualifying listing.
-- Never invent a product name. If you cannot verify a real listing for a brand, set product_name to null.
+1. Decide the category's single most comparable per-unit spec and the comparison quantity. Examples: protein bars -> spec "protein", unit "g", per 10 ("Price per 10g protein"); muesli -> spec "net weight", unit "g", per 100 ("Price per 100g"); sunscreen -> spec "volume", unit "ml", per 50 ("Price per 50ml").
+2. Pick ONE specific, named product (SKU) per brand, genuinely comparable across the two brands:
+   - Same tier/spec (e.g. both ~10g-protein, ~50g single bars) and the brand's standard, mainstream, widely stocked version - not a limited edition, combo or variety pack.
+   - A single named flavour/variant, with the name written exactly as on a real listing, e.g. "Yoga Bar Daily 10g Protein Bar, Dark Chocolate & Cranberry, 50g".
+   - Prefer Amazon.in (otherwise another major Indian retailer or the brand site). Pick the best-known, most-reviewed qualifying listing.
+3. Capture raw numbers for each product, all from the SAME listing where possible:
+   - price_inr: the selling price shown on that listing, as a plain number in rupees.
+   - pack_count: how many single units that price buys (a 6-pack at 415 -> pack_count 6; a single bar -> 1).
+   - spec_value: the amount of the spec in ONE single unit, from the label or listing (e.g. 10 for 10g protein in one bar). Use a printed/label figure, not an estimate.
+   - price_source and spec_source: where each number came from (retailer + URL).
+Never invent or estimate numbers. Verify price, pack_count and spec_value for both products before answering. If a candidate SKU's protein/spec or price cannot be verified, switch to another SKU of the same brand where all three can be verified. Only if no SKU can be verified, set that product's price_inr or spec_value to null.
+
+You have a generous search budget (about ${SELECT_MAX_SEARCHES} searches). Work efficiently and stop searching once both products are fully verified.
 
 Reply with ONE JSON object, no prose, no markdown fences:
-{"comparison_basis": string, "products": [{"brand": string, "product_name": string|null, "unit_size": string, "spec_per_unit": string, "retailer": string, "listing_url": string|null, "why_chosen": string}, {...}]}
-Products must be in the order Brand A, Brand B.`;
+{"comparison_basis": string,
+ "metric": {"name": string, "spec_name": string, "spec_unit": string, "per": number, "unit_label": string},
+ "products": [{"brand": string, "product_name": string|null, "unit_size": string, "spec_value": number|null, "spec_source": string, "price_inr": number|null, "pack_count": number|null, "price_source": string, "retailer": string, "listing_url": string|null, "why_chosen": string}, {...}]}
+"unit_label" example: "₹ per 10g protein". Products must be in the order Brand A, Brand B.`;
+
+const SKU_SCHEMA_VERSION = 2; // v2 locks price, pack count and spec as well as the product name
+const posNum = (n) => typeof n === "number" && Number.isFinite(n) && n > 0;
+
+function validateSelection(sel) {
+  const m = sel.metric;
+  if (!m || !posNum(m.per) || !m.name || !m.unit_label || !m.spec_name || !m.spec_unit) throw new Error("Selection did not define a usable comparison metric.");
+  if (!Array.isArray(sel.products) || sel.products.length !== 2) throw new Error("Could not choose products to compare.");
+  for (const p of sel.products) {
+    if (!p.product_name) throw new Error(`Could not find a verifiable product listing for ${p.brand}. Try a more specific brand name or category.`);
+    const missing = [!posNum(p.price_inr) && "price", !posNum(p.pack_count) && "pack count", !posNum(p.spec_value) && m.spec_name].filter(Boolean);
+    if (missing.length) throw new Error(`Could not verify ${missing.join(" / ")} for ${p.brand} (${p.product_name}).`);
+  }
+}
+
+// The hero metric is computed here, in code, from locked raw numbers. The model never states it.
+const r2 = (n) => Math.round(n * 100) / 100;
+function computeHero(metric, p) {
+  const perUnit = p.price_inr / p.pack_count;
+  const value = r2((perUnit / p.spec_value) * metric.per);
+  const basis =
+    `₹${p.price_inr} for ${p.pack_count} unit${p.pack_count === 1 ? "" : "s"} = ₹${r2(perUnit)} per unit; ` +
+    `${p.spec_value}${metric.spec_unit} ${metric.spec_name} per unit, so ₹${r2(perUnit)} ÷ ${p.spec_value} × ${metric.per} = ₹${value} per ${metric.per}${metric.spec_unit} ${metric.spec_name}. ` +
+    `Price from ${p.price_source || p.retailer}; ${metric.spec_name} from ${p.spec_source || "the listing"}.`;
+  return { value, display: `₹${value.toFixed(2)}`, basis };
+}
 
 async function selectProducts({ brandA, brandB, category }, onStatus, sources) {
   const key = pairKey(brandA, brandB, category);
   const db = loadSkus();
   const hit = db[key];
-  if (hit) {
+  if (hit && hit.v === SKU_SCHEMA_VERSION) {
     // order products as the user typed the brands
     const byBrand = new Map(hit.products.map((p) => [norm(p.brand), p]));
     const products = [byBrand.get(norm(brandA)), byBrand.get(norm(brandB))];
     if (products.every(Boolean)) return { ...hit, products, reused: true };
   }
   onStatus("Choosing the exact products to compare…");
-  const text = await searchChat({
+  const { text, searches, limitHit } = await searchChat({
     system: SELECT_SYSTEM,
     user: `Brand A: ${brandA}\nBrand B: ${brandB}\nCategory: ${category}`,
-    maxUses: 6,
+    maxUses: SELECT_MAX_SEARCHES,
     onStatus,
     sources,
   });
   const sel = extractJson(text);
-  const products = sel.products;
-  if (!Array.isArray(products) || products.length !== 2) throw new Error("Could not choose products to compare.");
-  products.forEach((p, i) => {
-    p.brand = i === 0 ? brandA : brandB;
-    if (!p.product_name) throw new Error(`Could not find a verifiable product listing for ${p.brand}. Try a more specific brand name or category.`);
-  });
-  const rec = { comparison_basis: sel.comparison_basis, products, selected_at: new Date().toISOString() };
+  if (Array.isArray(sel.products)) sel.products.forEach((p, i) => (p.brand = i === 0 ? brandA : brandB));
+  validateSelection(sel);
+  const rec = {
+    v: SKU_SCHEMA_VERSION,
+    comparison_basis: sel.comparison_basis,
+    metric: sel.metric,
+    products: sel.products,
+    selected_at: new Date().toISOString(),
+    selection_searches: searches,
+    selection_limit_hit: limitHit,
+  };
   db[key] = rec;
   saveSkus(db);
   return { ...rec, reused: false };
@@ -175,19 +218,20 @@ async function selectProducts({ brandA, brandB, category }, onStatus, sources) {
 async function generateReport({ brandA, brandB, category }, onStatus) {
   const sources = new Map();
   const sel = await selectProducts({ brandA, brandB, category }, onStatus, sources);
+  const hero = sel.products.map((p) => computeHero(sel.metric, p));
   const lock = sel.products
-    .map((p, i) => `Brand ${"AB"[i]} (${p.brand}) LOCKED PRODUCT: "${p.product_name}" - unit size ${p.unit_size}; spec ${p.spec_per_unit}; reference listing: ${p.retailer}${p.listing_url ? " " + p.listing_url : ""}`)
+    .map((p, i) => `Brand ${"AB"[i]} (${p.brand}) LOCKED PRODUCT: "${p.product_name}" - unit size ${p.unit_size}; locked price ₹${p.price_inr} for ${p.pack_count} unit(s); ${sel.metric.spec_name} ${p.spec_value}${sel.metric.spec_unit} per unit; reference listing: ${p.retailer}${p.listing_url ? " " + p.listing_url : ""}\n  Computed hero metric (${sel.metric.unit_label}): ${hero[i].display}`)
     .join("\n");
   onStatus(sel.reused ? "Reusing the previously chosen products…" : "Products chosen. Researching…");
-  const text = await searchChat({
+  const research = await searchChat({
     system: SYSTEM,
     user: `Brand A: ${brandA}\nBrand B: ${brandB}\nCategory: ${category}\n\nComparison basis: ${sel.comparison_basis}\n${lock}\n\nResearch both brands and produce the teardown JSON for exactly these two products.`,
-    maxUses: 12,
+    maxUses: RESEARCH_MAX_SEARCHES,
     onStatus,
     sources,
   });
   onStatus("Assembling report…");
-  const report = extractJson(text);
+  const report = extractJson(research.text);
 
   // Server-side guard: the report must compare the locked products or openly say it switched.
   const rep = Array.isArray(report.products) ? report.products : [];
@@ -202,8 +246,9 @@ async function generateReport({ brandA, brandB, category }, onStatus) {
       unit_size: lp.unit_size,
       retailer: used.retailer ?? lp.retailer,
       listing_url: used.listing_url ?? lp.listing_url,
-      price_inr: used.price_inr ?? null,
-      price_basis: used.price_basis || "",
+      locked_price_inr: lp.price_inr,
+      locked_pack_count: lp.pack_count,
+      locked_spec_value: lp.spec_value,
       switched,
       switch_reason: switched
         ? used.switch_reason ||
@@ -213,10 +258,30 @@ async function generateReport({ brandA, brandB, category }, onStatus) {
         : null,
     };
   });
+
+  // Hero metric: always from the locked raw numbers, never from model text. If a product was switched,
+  // the locked price/spec no longer describe what was compared, so show no number instead of a wrong one.
+  const heroFor = (i) =>
+    report.products[i].switched
+      ? { value: null, display: "n/a", basis: `Not computed: the report switched products, and the locked price and ${sel.metric.spec_name} belong to "${report.products[i].locked_name}".` }
+      : hero[i];
+  report.hero_metric = {
+    name: sel.metric.name,
+    unit: sel.metric.unit_label,
+    brand_a: heroFor(0),
+    brand_b: heroFor(1),
+    takeaway: typeof report.hero_metric?.takeaway === "string" ? report.hero_metric.takeaway : "",
+  };
+
   report.product_selection = {
     reused: sel.reused,
     selected_at: sel.selected_at,
     comparison_basis: sel.comparison_basis,
+    selection_searches: sel.selection_searches ?? null,
+    selection_limit_hit: sel.selection_limit_hit ?? null,
+    selection_search_limit: SELECT_MAX_SEARCHES,
+    research_searches: research.searches,
+    research_limit_hit: research.limitHit,
   };
   report.sources = [...sources].slice(0, 30).map(([url, title]) => ({ url, title }));
   report.generated_at = new Date().toISOString();
@@ -271,7 +336,7 @@ const server = http.createServer(async (req, res) => {
       const brandA = clean(body.brandA, 80), brandB = clean(body.brandB, 80), category = clean(body.category, 80);
       if (!brandA || !brandB || !category) return json(400, { error: "Brand A, Brand B and category are required." });
       if (brandA.toLowerCase() === brandB.toLowerCase()) return json(400, { error: "Pick two different brands." });
-      if (!process.env.ANTHROPIC_API_KEY) return json(500, { error: "Server is missing ANTHROPIC_API_KEY." });
+      if (!API_KEY) return json(500, { error: "Server is missing TEARDOWN_API_KEY." });
       const id = randomUUID();
       const job = { id, created: Date.now(), status: "running", message: "Starting research…" };
       jobs.set(id, job);

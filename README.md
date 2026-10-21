@@ -5,6 +5,6 @@ Enter two brands and a category; the server researches the web with Claude (`cla
 
 ## Run
     npm install
-    ANTHROPIC_API_KEY=... npm start   # http://localhost:3000
+    TEARDOWN_API_KEY=... npm start   # http://localhost:3000 (ANTHROPIC_API_KEY also works as a fallback)
 
 The product pair chosen for each comparison is saved in `data/skus.json` so reruns compare the same products.
