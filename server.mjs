@@ -13,6 +13,7 @@ const MODEL = "claude-sonnet-5-5";
 const MAX_CONTINUES = 6;
 const SELECT_MAX_SEARCHES = 24; // product selection: verify price, pack and spec for two brands
 const RESEARCH_MAX_SEARCHES = 12;
+const SENTIMENT_MAX_SEARCHES = 12; // one-off rating capture for the locked products
 
 // The deployment secret is TEARDOWN_API_KEY; ANTHROPIC_API_KEY is only a fallback for local use.
 const API_KEY = process.env.TEARDOWN_API_KEY || process.env.ANTHROPIC_API_KEY;
@@ -32,7 +33,7 @@ Product lock (critical): the user message gives you ONE locked, specific product
 - Take price, pack size, protein/spec, ingredient panel, rating and review count from the locked product's listing (the retailer and URL given) or, failing that, from the same named product on another retailer or the brand site. Never substitute a different flavour, size, pack count or product line because it surfaced in search.
 - The locked product's price, pack count and per-unit spec are fixed inputs, already verified. The server computes the hero metric from them. Do NOT recompute it, do NOT report a different price or spec, and do NOT put any hero-metric number in hero_metric - only the "takeaway" prose, which may quote the computed values given in the user message exactly.
 - If the locked product cannot be found or verified at all, you may use the closest equivalent, but you MUST set "switched": true and explain why in "switch_reason", and print the replacement's exact name. Otherwise "switched" is false and "product_name" is the locked name verbatim.
-- Ratings and review counts must come from the locked product's listing; state which retailer.
+- Ratings and review counts are captured and locked by the server. Do NOT research, report or mention them (and do not list them in data_gaps).
 
 Output: after researching, reply with ONE JSON object and nothing else (no markdown fences, no prose). Use exactly this shape:
 
@@ -61,10 +62,6 @@ Output: after researching, reply with ONE JSON object and nothing else (no markd
   "claims_vs_reality": {
     "brand_a": {"headline_claim": string, "ingredient_panel": string|null, "verdict": "match"|"partial"|"mismatch"|"unverified", "explanation": string},
     "brand_b": {"headline_claim": string, "ingredient_panel": string|null, "verdict": "match"|"partial"|"mismatch"|"unverified", "explanation": string}
-  },
-  "sentiment": {
-    "brand_a": {"platform": string, "rating": number|null, "review_count": number|null, "note": string},
-    "brand_b": {"platform": string, "rating": number|null, "review_count": number|null, "note": string}
   },
   "white_space": {"summary": string, "gap": string},
   "takeaway": {"summary": string, "moves": [string]},   // 3 concrete positioning moves for a founder
@@ -154,7 +151,7 @@ Reply with ONE JSON object, no prose, no markdown fences:
  "products": [{"brand": string, "product_name": string|null, "unit_size": string, "spec_value": number|null, "spec_source": string, "price_inr": number|null, "pack_count": number|null, "price_source": string, "retailer": string, "listing_url": string|null, "why_chosen": string}, {...}]}
 "unit_label" example: "₹ per 10g protein". Products must be in the order Brand A, Brand B.`;
 
-const SKU_SCHEMA_VERSION = 2; // v2 locks price, pack count and spec as well as the product name
+const SKU_SCHEMA_VERSION = 3; // v2 added price/pack/spec; v3 also locks rating and review count
 const posNum = (n) => typeof n === "number" && Number.isFinite(n) && n > 0;
 
 function validateSelection(sel) {
@@ -180,15 +177,67 @@ function computeHero(metric, p) {
   return { value, display: `₹${value.toFixed(2)}`, basis };
 }
 
+const SENTIMENT_SYSTEM = `You record public buyer ratings for two specific, already-chosen products. Use web search.
+
+For each product find the star rating (out of 5) and the number of ratings/reviews shown for THAT product's listing. Use the reference listing given; if it isn't reachable, use the same named product on another major Indian retailer and say which. Copy the numbers as displayed; never estimate, average across different products, or substitute another flavour, size or pack.
+- review_count is the count displayed next to the rating (ratings or reviews, say which in "note").
+- If you cannot verify a rating or count for a product, set it to null and explain in "note". Do not guess.
+Stop searching once both are found or clearly unavailable.
+
+Reply with ONE JSON object, no prose, no markdown fences:
+{"sentiment": [{"brand": string, "platform": string, "rating": number|null, "review_count": number|null, "source_url": string|null, "note": string}, {...}]}
+Order: Brand A, Brand B.`;
+
+// Clamp to sane values so a junk number can't be locked in: anything unverifiable becomes null ("not verified").
+function cleanSentiment(x = {}) {
+  const rating = typeof x.rating === "number" && x.rating > 0 && x.rating <= 5 ? x.rating : null;
+  const rc = typeof x.review_count === "number" && Number.isInteger(x.review_count) && x.review_count >= 0 ? x.review_count : null;
+  return {
+    platform: x.platform || null,
+    rating,
+    review_count: rc,
+    source_url: x.source_url || null,
+    note: x.note || "",
+  };
+}
+
+async function captureSentiment(rec, onStatus, sources) {
+  onStatus("Recording buyer ratings for the locked products…");
+  const user = rec.products
+    .map((p, i) => `Brand ${"AB"[i]} (${p.brand}): "${p.product_name}" - reference listing: ${p.retailer}${p.listing_url ? " " + p.listing_url : ""}`)
+    .join("\n");
+  const { text, searches, limitHit } = await searchChat({
+    system: SENTIMENT_SYSTEM,
+    user,
+    maxUses: SENTIMENT_MAX_SEARCHES,
+    onStatus,
+    sources,
+  });
+  const parsed = extractJson(text);
+  const got = Array.isArray(parsed.sentiment) ? parsed.sentiment : [];
+  rec.sentiment = rec.products.map((_, i) => cleanSentiment(got[i]));
+  rec.sentiment_captured_at = new Date().toISOString();
+  rec.sentiment_searches = searches;
+  rec.sentiment_limit_hit = limitHit;
+}
+
 async function selectProducts({ brandA, brandB, category }, onStatus, sources) {
   const key = pairKey(brandA, brandB, category);
   const db = loadSkus();
   const hit = db[key];
-  if (hit && hit.v === SKU_SCHEMA_VERSION) {
-    // order products as the user typed the brands
-    const byBrand = new Map(hit.products.map((p) => [norm(p.brand), p]));
-    const products = [byBrand.get(norm(brandA)), byBrand.get(norm(brandB))];
-    if (products.every(Boolean)) return { ...hit, products, reused: true };
+  if (hit && hit.v >= 2) {
+    if (hit.v < SKU_SCHEMA_VERSION) {
+      // Older lock: keep the same products, capture sentiment once and save it.
+      await captureSentiment(hit, onStatus, sources);
+      hit.v = SKU_SCHEMA_VERSION;
+      saveSkus(db);
+    }
+    // order products (and their locked sentiment) as the user typed the brands
+    const idx = new Map(hit.products.map((p, i) => [norm(p.brand), i]));
+    const order = [idx.get(norm(brandA)), idx.get(norm(brandB))];
+    if (order.every((i) => i !== undefined)) {
+      return { ...hit, products: order.map((i) => hit.products[i]), sentiment: order.map((i) => hit.sentiment[i]), reused: true };
+    }
   }
   onStatus("Choosing the exact products to compare…");
   const { text, searches, limitHit } = await searchChat({
@@ -202,7 +251,8 @@ async function selectProducts({ brandA, brandB, category }, onStatus, sources) {
   if (Array.isArray(sel.products)) sel.products.forEach((p, i) => (p.brand = i === 0 ? brandA : brandB));
   validateSelection(sel);
   const rec = {
-    v: SKU_SCHEMA_VERSION,
+    v: 2, // upgraded to the current version once sentiment is captured
+
     comparison_basis: sel.comparison_basis,
     metric: sel.metric,
     products: sel.products,
@@ -211,6 +261,9 @@ async function selectProducts({ brandA, brandB, category }, onStatus, sources) {
     selection_limit_hit: limitHit,
   };
   db[key] = rec;
+  saveSkus(db); // keep the chosen products even if the sentiment step fails; the next run finishes the upgrade
+  await captureSentiment(rec, onStatus, sources);
+  rec.v = SKU_SCHEMA_VERSION;
   saveSkus(db);
   return { ...rec, reused: false };
 }
@@ -273,6 +326,20 @@ async function generateReport({ brandA, brandB, category }, onStatus) {
     takeaway: typeof report.hero_metric?.takeaway === "string" ? report.hero_metric.takeaway : "",
   };
 
+  // Sentiment: always the locked values. Null stays "not verified" every run; a switched product gets none.
+  const sentFor = (i) => {
+    const ls = sel.sentiment[i] || cleanSentiment();
+    if (report.products[i].switched) {
+      return { platform: ls.platform, rating: null, review_count: null, note: `Not verified: the report switched products, and the locked rating belongs to "${report.products[i].locked_name}".` };
+    }
+    const when = new Date(sel.sentiment_captured_at).toISOString().slice(0, 10);
+    const note = ls.rating == null && ls.review_count == null
+      ? `Not verified: no rating or review count could be confirmed for this listing when it was locked (${when}). ${ls.note}`.trim()
+      : `Locked ${when}. ${ls.note}`.trim();
+    return { platform: ls.platform, rating: ls.rating, review_count: ls.review_count, note };
+  };
+  report.sentiment = { brand_a: sentFor(0), brand_b: sentFor(1) };
+
   report.product_selection = {
     reused: sel.reused,
     selected_at: sel.selected_at,
@@ -280,6 +347,9 @@ async function generateReport({ brandA, brandB, category }, onStatus) {
     selection_searches: sel.selection_searches ?? null,
     selection_limit_hit: sel.selection_limit_hit ?? null,
     selection_search_limit: SELECT_MAX_SEARCHES,
+    sentiment_captured_at: sel.sentiment_captured_at,
+    sentiment_searches: sel.sentiment_searches ?? null,
+    sentiment_limit_hit: sel.sentiment_limit_hit ?? null,
     research_searches: research.searches,
     research_limit_hit: research.limitHit,
   };
