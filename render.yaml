@@ -1,0 +1,17 @@
+# Render Blueprint: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: teardown
+    runtime: node
+    plan: free            # change to "starter" ($7/mo) before real use; see README
+    region: singapore
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TEARDOWN_API_KEY    # secret: you type it in the Render dashboard, never in code
+        sync: false
+      - key: TEARDOWN_PASSWORD   # secret: the shared password for the app
+        sync: false

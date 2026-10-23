@@ -1,7 +1,7 @@
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -18,6 +18,32 @@ const SENTIMENT_MAX_SEARCHES = 12; // one-off rating capture for the locked prod
 // The deployment secret is TEARDOWN_API_KEY; ANTHROPIC_API_KEY is only a fallback for local use.
 const API_KEY = process.env.TEARDOWN_API_KEY || process.env.ANTHROPIC_API_KEY;
 const client = new Anthropic({ apiKey: API_KEY });
+
+// One shared password (HTTP Basic auth; the username is ignored). Good enough for testing, not a user system.
+const PASSWORD = process.env.TEARDOWN_PASSWORD;
+if (!PASSWORD) {
+  if (process.env.NODE_ENV === "production") {
+    console.error("Refusing to start: TEARDOWN_PASSWORD is not set (NODE_ENV=production).");
+    process.exit(1);
+  }
+  console.warn("TEARDOWN_PASSWORD is not set: password protection is OFF (local use only).");
+}
+const sha = (v) => createHash("sha256").update(v).digest();
+function passwordOk(req) {
+  const h = req.headers.authorization || "";
+  if (!h.startsWith("Basic ")) return false;
+  const decoded = Buffer.from(h.slice(6), "base64").toString("utf8");
+  const given = decoded.slice(decoded.indexOf(":") + 1);
+  return timingSafeEqual(sha(given), sha(PASSWORD));
+}
+// Failed-attempt cap (global, so it can't be dodged by spoofing an IP): 30 failures per 15 minutes.
+let failures = [];
+const lockedOut = () => {
+  const cut = Date.now() - 900_000;
+  failures = failures.filter((t) => t > cut);
+  return failures.length >= 30;
+};
+const REPORTS_PER_HOUR = Number(process.env.REPORTS_PER_HOUR) || 10;
 
 const SYSTEM = `You are a competitive-intelligence analyst producing a founder-facing teardown of two Indian health-food / clean-label brands in one product category.
 
@@ -381,7 +407,7 @@ function rateLimited(ip) {
   const arr = (hits.get(ip) || []).filter((t) => now - t < 3600_000);
   arr.push(now);
   hits.set(ip, arr);
-  return arr.length > 10;
+  return arr.length > REPORTS_PER_HOUR;
 }
 setInterval(() => {
   const cut = Date.now() - 3600_000;
@@ -412,6 +438,15 @@ const server = http.createServer(async (req, res) => {
   };
   try {
     const url = new URL(req.url, "http://x");
+    if (url.pathname === "/healthz") { res.writeHead(200, { "content-type": "text/plain" }); return res.end("ok"); }
+    if (PASSWORD) {
+      if (lockedOut()) return json(429, { error: "Too many failed password attempts. Try again in 15 minutes." });
+      if (!passwordOk(req)) {
+        failures.push(Date.now());
+        res.writeHead(401, { "www-authenticate": 'Basic realm="Teardown", charset="UTF-8"', "content-type": "text/plain" });
+        return res.end("Password required");
+      }
+    }
     if (req.method === "POST" && url.pathname === "/api/report") {
       const ip = req.socket.remoteAddress || "?";
       if (rateLimited(ip)) return json(429, { error: "Too many reports this hour. Try again later." });
