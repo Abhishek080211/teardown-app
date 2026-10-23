@@ -5,25 +5,24 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Teardown</title>
 <style>
-:root{--ink:#16181d;--mut:#5d6573;--bg:#faf8f4;--card:#fff;--line:#e8e3da;
---a:#e4572e;--b:#2a7de1;--c1:#e4572e;--c2:#f2a900;--c3:#2e9e6b;--c4:#2a7de1;--c5:#7a4fd6;--c6:#d6336c;--c7:#0e9aa7;--c8:#16181d}
+:root{--bg:#0a1220;--panel:#0f1b2f;--panel2:#142339;--inset:#0a1423;--chip:#16263f;--line:#223350;--text:#e8edf5;--soft:#cdd7e6;--mut:#8d9db6;
+--acc:#f0a830;--brandA:#f0a830;--brandB:#8fb0dc;--onacc:#0a1220;
+--serif:Georgia,"Iowan Old Style","Times New Roman",serif;--mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 .wrap{max-width:900px;margin:0 auto;padding:0 16px}
 h1,h2,h3{line-height:1.15;margin:0}
-.logo{font-weight:800;letter-spacing:-.02em}
-.logo b{color:var(--a)}
 /* landing: see "Landing" block below */
-button{font:inherit;font-weight:700;border:0;border-radius:10px;padding:14px 18px;background:var(--ink);color:#fff;cursor:pointer}
+button{font:inherit;font-weight:700;border:0;border-radius:2px;padding:11px 16px;background:var(--acc);color:var(--onacc);cursor:pointer;letter-spacing:.1em;text-transform:uppercase;font-size:.78rem}
+button:hover:not(:disabled){filter:brightness(1.08)}
 button:disabled{opacity:.5;cursor:wait}
-.btn2{background:#fff;color:var(--ink);border:1.5px solid var(--ink)}
-.err{color:#b3261e;font-weight:600}
+.btn2{background:transparent;color:var(--text);border:1px solid #3a4f73}
+.err{color:#ff8f87;font-weight:600}
 .loading{text-align:center;padding:80px 0}
-.spin{width:44px;height:44px;border:5px solid var(--line);border-top-color:var(--a);border-radius:50%;margin:0 auto 18px;animation:s 1s linear infinite}
+.spin{width:44px;height:44px;border:5px solid var(--line);border-top-color:var(--acc);border-radius:50%;margin:0 auto 18px;animation:s 1s linear infinite}
 @keyframes s{to{transform:rotate(360deg)}}
 .hidden{display:none}
 /* Landing + loading: restrained navy/charcoal, one amber accent. Scoped so report pages are untouched. */
-body.is-dark{--bg:#0a1220;--panel:#0f1b2f;--line:#223350;--text:#e8edf5;--mut:#8d9db6;--acc:#f0a830;background:var(--bg);color:var(--text)}
 body.is-dark .wrap{max-width:1120px;padding:0 20px}
 .mono,.lt-bar,.lt-eyebrow,#landing label .lab,.lt-ch,.lt-grid .n,.lt-note,.lt-foot{font-family:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
 .lt-bar{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:18px 0;border-bottom:1px solid var(--line);font-size:.72rem;letter-spacing:.12em;color:var(--mut);text-transform:uppercase}
@@ -65,58 +64,63 @@ body.is-dark .loading{padding:120px 0}
 body.is-dark .spin{border-color:var(--line);border-top-color:var(--acc)}
 body.is-dark .loading .meta{color:var(--mut)}
 body.is-dark .loading h2{font-family:Georgia,serif}
-/* report */
-.top{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 0;flex-wrap:wrap}
-.title{padding:24px 0 8px}
-.title h1{font-size:clamp(1.8rem,6vw,3rem);letter-spacing:-.03em}
-.vs{color:var(--mut);font-weight:400}
-.ca{color:var(--a)}.cb{color:var(--b)}
-.meta{color:var(--mut);font-size:.85rem}
+/* report: same palette and type pairing as the landing page */
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 0;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+.top div:last-child{display:flex;gap:8px;flex-wrap:wrap}
+.title{padding:28px 0 8px}
+.title h1{font-family:var(--serif);font-weight:700;font-size:clamp(1.8rem,6vw,3rem);letter-spacing:-.015em;line-height:1.08}
+.vs{color:var(--mut);font-weight:400;font-style:italic}
+.ca{color:var(--brandA)}.cb{color:var(--brandB)}
+.meta{color:var(--mut);font-family:var(--mono);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase}
 section{margin:0 0 8px}
-.band{display:flex;align-items:center;gap:12px;padding:14px 18px;border-radius:12px;color:#fff;margin:36px 0 16px;break-after:avoid}
-.band .n{font-size:1.8rem;font-weight:800;opacity:.9}
-.band h2{font-size:1.25rem}
-.band small{display:block;opacity:.85;font-size:.8rem}
+.band{display:flex;align-items:center;gap:16px;padding:14px 18px;border-radius:2px;background:var(--panel2);border:1px solid var(--line);border-top:2px solid var(--text);margin:36px 0 16px;break-after:avoid}
+.band .n{font-family:var(--mono);font-size:1.6rem;font-weight:700;color:var(--acc);letter-spacing:-.02em}
+.band h2{font-family:var(--serif);font-size:1.3rem;font-weight:700}
+.band small{display:block;font-family:var(--mono);text-transform:uppercase;letter-spacing:.1em;color:var(--mut);font-size:.68rem;margin-top:2px}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 @media(max-width:620px){.two{grid-template-columns:1fr}}
-.card{background:var(--card);border:1px solid var(--line);border-top:5px solid var(--a);border-radius:12px;padding:16px;break-inside:avoid}
-.card.b{border-top-color:var(--b)}
-.card h3{font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
-.card.a h3{color:var(--a)}.card.b h3{color:var(--b)}
+.card{background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--brandA);border-radius:2px;padding:16px;break-inside:avoid}
+.card.b{border-top-color:var(--brandB)}
+.card h3{font-family:var(--mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px;font-weight:600}
+.card.a h3{color:var(--brandA)}.card.b h3{color:var(--brandB)}
 .card p{margin:6px 0}
-.lede{font-size:1.05rem;margin:14px 0}
+.lede{font-size:1.05rem;margin:14px 0;color:var(--soft)}
 .kv{font-size:.9rem;color:var(--mut)}
-.kv b{color:var(--ink)}
-.pill{display:inline-block;background:#f1ede4;border-radius:99px;padding:2px 10px;margin:2px 4px 2px 0;font-size:.82rem}
-.big{font-size:clamp(2.6rem,11vw,4.4rem);font-weight:800;letter-spacing:-.04em;line-height:1}
-.card.a .big{color:var(--a)}.card.b .big{color:var(--b)}
-.unit{color:var(--mut);font-size:.85rem;margin:4px 0 10px}
-.verdict{display:inline-block;font-weight:700;font-size:.78rem;padding:3px 10px;border-radius:99px;color:#fff;text-transform:uppercase;letter-spacing:.05em}
-.v-match{background:#2e9e6b}.v-partial{background:#e0a100}.v-mismatch{background:#d6336c}.v-unverified{background:#6b7280}
-blockquote{margin:8px 0;padding:8px 12px;border-left:4px solid var(--line);background:#faf8f4;font-style:italic}
-.panel{font-size:.85rem;background:#faf8f4;border-radius:8px;padding:8px 10px;margin:8px 0;word-break:break-word}
-.notfound{background:#fff4e5;border:1px dashed #e0a100;color:#7a5200}
+.kv b{color:var(--text)}
+.pill{display:inline-block;background:var(--chip);border:1px solid var(--line);border-radius:2px;padding:2px 9px;margin:2px 4px 2px 0;font-size:.8rem}
+.big{font-family:var(--mono);font-size:clamp(2.4rem,10vw,4rem);font-weight:700;letter-spacing:-.05em;line-height:1;color:var(--text)}
+.unit{color:var(--mut);font-family:var(--mono);font-size:.72rem;letter-spacing:.06em;margin:6px 0 10px}
+.verdict{display:inline-block;font-family:var(--mono);font-weight:700;font-size:.68rem;padding:3px 9px;border-radius:2px;color:#fff;text-transform:uppercase;letter-spacing:.1em}
+.v-match{background:#2f8f66}.v-partial{background:#a9761a}.v-mismatch{background:#c0455f}.v-unverified{background:#56668a}
+blockquote{margin:8px 0;padding:8px 12px;border-left:3px solid #3a4f73;background:var(--inset);font-family:var(--serif);font-style:italic;color:var(--soft)}
+.panel{font-size:.85rem;background:var(--inset);border:1px solid var(--line);border-radius:2px;padding:8px 10px;margin:8px 0;word-break:break-word;color:var(--soft)}
+.notfound{background:rgba(240,168,48,.08);border:1px dashed rgba(240,168,48,.65);color:var(--soft)}
 .tw{overflow-x:auto}
-table{width:100%;min-width:560px;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+table{width:100%;min-width:560px;border-collapse:collapse;background:var(--panel);border:1px solid var(--line)}
 th,td{padding:12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top;font-size:.95rem}
-th{background:#f1ede4;font-size:.8rem;text-transform:uppercase;letter-spacing:.06em}
+th{background:var(--panel2);font-family:var(--mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);font-weight:600}
 tr:last-child td{border-bottom:0}
-.prod{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:12px 0}
-.prod h3{font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.prod{background:var(--panel);border:1px solid var(--line);border-radius:2px;padding:14px 16px;margin:12px 0}
+.prod h3{font-family:var(--mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px;color:var(--mut);font-weight:600}
 .prod .pn{font-weight:700}
 .prod li{margin:6px 0}
-.sw{display:inline-block;background:#fff4e5;border:1px solid #e0a100;color:#7a5200;border-radius:8px;padding:4px 8px;font-size:.85rem;margin-top:4px}
-.pname{font-size:.8rem;font-weight:600;margin:0 0 6px;color:var(--ink)}
-.inferred{display:inline-block;background:#eef6ff;border:1px solid #b9d6f5;color:#14416e;border-radius:8px;padding:6px 10px;margin:8px 0 4px;font-size:.9rem}
-.hl{background:linear-gradient(135deg,#fff3ec,#fff);border:1px solid var(--line);border-left:6px solid var(--c7);border-radius:12px;padding:16px}
-ol.moves{padding-left:20px}ol.moves li{margin:8px 0}
+.sw{display:inline-block;background:rgba(240,168,48,.08);border:1px solid rgba(240,168,48,.65);color:var(--soft);border-radius:2px;padding:4px 8px;font-size:.85rem;margin-top:4px}
+.pname{font-size:.8rem;font-weight:600;margin:0 0 6px;color:var(--soft)}
+.inferred{display:inline-block;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:2px;padding:6px 10px;margin:8px 0 4px;font-size:.9rem}
+.hl{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:2px;padding:16px;color:var(--soft)}
+ol.moves{padding-left:22px;color:var(--soft)}ol.moves li{margin:8px 0}ol.moves li::marker{color:var(--acc);font-family:var(--mono);font-weight:700}
 .srcs{font-size:.8rem;color:var(--mut);word-break:break-all}
-.srcs a{color:var(--mut)}
+.srcs a{color:#9fb1cc}
 footer{margin:40px 0;color:var(--mut);font-size:.8rem}
+footer ul{padding-left:18px}
 @media print{
- body{background:#fff;font-size:12px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+ /* PDF: light version of the same palette (saves ink); section bands stay navy */
+ :root{--bg:#fff;--panel:#fff;--panel2:#eef1f6;--inset:#f3f5f9;--chip:#e8edf5;--line:#cfd6e2;--text:#0e1a2e;--soft:#243450;--mut:#55657f;--acc:#b9770e;--brandA:#b9770e;--brandB:#3d6aa8}
+ body{font-size:12px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
  .noprint{display:none!important}
- .band{margin:20px 0 10px}
+ .band{margin:20px 0 10px;background:#0f1b2f;border-color:#0f1b2f;color:#fff}
+ .band h2{color:#fff}.band small{color:#aab8cf}.band .n{color:#f0a830}
+ .srcs a{color:#55657f}
  @page{margin:14mm}
 }
 </style>
@@ -225,8 +229,8 @@ const VERDICT = {match:"Claim holds", partial:"Partly holds", mismatch:"Mismatch
 const NF = '<span class="verdict v-unverified">Not verified</span>';
 const val = (v, fallback = "Not verified") => (v === null || v === undefined || v === "" ? `<i>${fallback}</i>` : esc(v));
 
-function band(n, color, title, sub) {
-  return `<div class="band" style="background:${color}"><span class="n">${n}</span><div><h2>${esc(title)}</h2><small>${esc(sub)}</small></div></div>`;
+function band(n, title, sub) {
+  return `<div class="band"><span class="n">${String(n).padStart(2, "0")}</span><div><h2>${esc(title)}</h2><small>${esc(sub)}</small></div></div>`;
 }
 function two(a, b, fa, fb) { return `<div class="two"><div class="card a"><h3>${esc(a)}</h3>${fa}</div><div class="card b"><h3>${esc(b)}</h3>${fb}</div></div>`; }
 
@@ -256,7 +260,7 @@ function render(r) {
   const sent = (x = {}) => `<tr><td>${esc(x.name)}<br><span class="kv">${esc(x.product)}</span></td><td>${esc(x.platform) || "—"}</td><td>${x.rating == null ? "<i>Not verified</i>" : "<b>" + esc(x.rating) + "</b> / 5"}</td><td>${x.review_count == null ? "<i>Not verified</i>" : Number(x.review_count).toLocaleString("en-IN")}</td><td>${esc(x.note)}</td></tr>`;
   const gaps = (r.data_gaps || []);
   $("#report").innerHTML = `
-  <div class="top noprint"><div class="logo">Tear<b>down</b></div><div><button class="btn2" onclick="location.hash='';location.reload()">New teardown</button> <button onclick="window.print()">Download as PDF</button></div></div>
+  <div class="top noprint"><div class="lt-logo">TEAR<b>DOWN</b></div><div><button class="btn2" onclick="location.hash='';location.reload()">New teardown</button> <button onclick="window.print()">Download as PDF</button></div></div>
   <div class="title">
     <div class="meta">TEARDOWN · ${esc(r.category)}</div>
     ${r.category_inferred ? `<p class="inferred">Comparing in: <b>${esc(r.category)}</b> — inferred, not specified by user.</p>` : ""}
@@ -266,31 +270,31 @@ function render(r) {
 
   ${prodBlock(r)}
 
-  <section>${band(1,"var(--c1)","Two Brands, Two Plays","Positioning contrast")}
+  <section>${band(1,"Two Brands, Two Plays","Positioning contrast")}
     ${two(A,B,`<p>${esc(pos.brand_a?.play)}</p>`,`<p>${esc(pos.brand_b?.play)}</p>`)}
     <p class="lede">${esc(pos.contrast)}</p></section>
 
-  <section>${band(2,"var(--c2)","Growth & Ownership","Founding year, funding and ownership")}
+  <section>${band(2,"Growth & Ownership","Founding year, funding and ownership")}
     ${two(A,B,growth(gr.brand_a),growth(gr.brand_b))}</section>
 
-  <section>${band(3,"var(--c3)","Channel Reach","Distribution")}
+  <section>${band(3,"Channel Reach","Distribution")}
     ${two(A,B,chan(ch.brand_a),chan(ch.brand_b))}</section>
 
-  <section>${band(4,"var(--c4)","Hero Metric",hm.name || "Per-unit cost")}
+  <section>${band(4,"Hero Metric",hm.name || "Per-unit cost")}
     ${two(A,B,hero(hm.brand_a,0),hero(hm.brand_b,1))}
     <p class="lede">${esc(hm.takeaway)}</p></section>
 
-  <section>${band(5,"var(--c5)","Claims vs Ingredient Reality","Headline claim checked against the real label")}
+  <section>${band(5,"Claims vs Ingredient Reality","Headline claim checked against the real label")}
     ${two(A,B,claim(cl.brand_a,0),claim(cl.brand_b,1))}</section>
 
-  <section>${band(6,"var(--c6)","Buyer Sentiment","Public ratings and review volume")}
+  <section>${band(6,"Buyer Sentiment","Public ratings and review volume")}
     <div class="tw"><table><thead><tr><th>Brand</th><th>Platform</th><th>Rating</th><th>Reviews</th><th>Notes</th></tr></thead><tbody>
     ${sent({...se.brand_a, name: A, product: (r.products||[])[0]?.product_name})}${sent({...se.brand_b, name: B, product: (r.products||[])[1]?.product_name})}</tbody></table></div></section>
 
-  <section>${band(7,"var(--c7)","Market White Space","The unclaimed pricing / positioning gap")}
+  <section>${band(7,"Market White Space","The unclaimed pricing / positioning gap")}
     <div class="hl"><p style="margin-top:0">${esc(ws.summary)}</p><p style="margin-bottom:0"><b>The gap:</b> ${esc(ws.gap)}</p></div></section>
 
-  <section>${band(8,"var(--c8)","Strategic Takeaway","What this means for a founder positioning a new product")}
+  <section>${band(8,"Strategic Takeaway","What this means for a founder positioning a new product")}
     <p class="lede">${esc(tk.summary)}</p>
     <ol class="moves">${(tk.moves||[]).map((m)=>`<li>${esc(m)}</li>`).join("")}</ol></section>
 
