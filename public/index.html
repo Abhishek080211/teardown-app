@@ -13,16 +13,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-ap
 h1,h2,h3{line-height:1.15;margin:0}
 .logo{font-weight:800;letter-spacing:-.02em}
 .logo b{color:var(--a)}
-/* landing */
-.hero{padding:56px 0 24px}
-.hero h1{font-size:clamp(2.2rem,7vw,3.6rem);letter-spacing:-.03em;margin:12px 0}
-.hero p{color:var(--mut);max-width:560px;font-size:1.1rem}
-form{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;display:grid;gap:14px;margin:16px 0 40px;box-shadow:0 6px 24px #0001}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-@media(max-width:620px){.row{grid-template-columns:1fr}}
-label{font-size:.85rem;font-weight:600;display:grid;gap:6px}
-input{font:inherit;padding:12px;border:1.5px solid var(--line);border-radius:10px;background:#fff}
-input:focus{outline:none;border-color:var(--b)}
+/* landing: see "Landing" block below */
 button{font:inherit;font-weight:700;border:0;border-radius:10px;padding:14px 18px;background:var(--ink);color:#fff;cursor:pointer}
 button:disabled{opacity:.5;cursor:wait}
 .btn2{background:#fff;color:var(--ink);border:1.5px solid var(--ink)}
@@ -31,6 +22,49 @@ button:disabled{opacity:.5;cursor:wait}
 .spin{width:44px;height:44px;border:5px solid var(--line);border-top-color:var(--a);border-radius:50%;margin:0 auto 18px;animation:s 1s linear infinite}
 @keyframes s{to{transform:rotate(360deg)}}
 .hidden{display:none}
+/* Landing + loading: restrained navy/charcoal, one amber accent. Scoped so report pages are untouched. */
+body.is-dark{--bg:#0a1220;--panel:#0f1b2f;--line:#223350;--text:#e8edf5;--mut:#8d9db6;--acc:#f0a830;background:var(--bg);color:var(--text)}
+body.is-dark .wrap{max-width:1120px;padding:0 20px}
+.mono,.lt-bar,.lt-eyebrow,#landing label .lab,.lt-ch,.lt-grid .n,.lt-note,.lt-foot{font-family:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
+.lt-bar{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:18px 0;border-bottom:1px solid var(--line);font-size:.72rem;letter-spacing:.12em;color:var(--mut);text-transform:uppercase}
+.lt-logo{font-weight:700;color:var(--text);letter-spacing:.2em;font-size:.85rem}
+.lt-logo b{color:var(--acc);font-weight:700}
+@media(max-width:620px){.lt-bar .lt-tag{display:none}}
+.lt-main{display:grid;grid-template-columns:1.1fr .9fr;gap:48px;align-items:start;padding:44px 0 36px}
+@media(max-width:900px){.lt-main{grid-template-columns:1fr;gap:28px;padding:28px 0 24px}}
+.lt-eyebrow{font-size:.72rem;letter-spacing:.14em;color:var(--mut);text-transform:uppercase;margin:0 0 14px}
+.lt-eyebrow::before{content:"";display:inline-block;width:22px;height:2px;background:var(--acc);vertical-align:middle;margin-right:10px}
+#landing h1{font-family:Georgia,"Iowan Old Style","Times New Roman",serif;font-weight:700;font-size:clamp(2rem,5vw,3.3rem);letter-spacing:-.015em;line-height:1.08;margin:0 0 18px}
+.lt-lede{color:#b4c1d6;font-size:1.05rem;line-height:1.6;max-width:540px;margin:0}
+.lt-form{background:var(--panel);border:1px solid var(--line);border-top:2px solid var(--acc);border-radius:2px;display:grid;gap:16px;padding:20px 20px 22px}
+.lt-ph{display:flex;justify-content:space-between;font-size:.7rem;letter-spacing:.14em;color:var(--mut);text-transform:uppercase;font-family:ui-monospace,Menlo,Consolas,monospace;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.lt-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:520px){.lt-row{grid-template-columns:1fr}}
+#landing label{display:grid;gap:7px;font-size:.9rem}
+#landing label .lab{font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--mut)}
+#landing label .lab i{font-style:normal;color:#6f819c;margin-left:6px}
+#landing input{font:inherit;font-size:1rem;padding:12px;background:#0a1423;color:var(--text);border:1px solid #2a3d5e;border-radius:2px}
+#landing input::placeholder{color:#5f7190}
+#landing input:focus{outline:none;border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
+.lt-hint{font-size:.78rem;color:var(--mut);margin:-6px 0 0}
+#go{background:var(--acc);color:#0a1220;border-radius:2px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;font-size:.85rem;padding:15px 18px}
+#go:hover:not(:disabled){filter:brightness(1.08)}
+.lt-note{font-size:.7rem;letter-spacing:.06em;color:var(--mut);text-align:center;margin:-4px 0 0}
+body.is-dark .err{color:#ff8f87}
+.lt-contents{border-top:1px solid var(--line);padding:22px 0 8px}
+.lt-ch{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--mut);margin-bottom:14px}
+.lt-ch b{color:var(--text);font-weight:600}
+.lt-grid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line)}
+@media(max-width:900px){.lt-grid{grid-template-columns:repeat(2,1fr)}}
+.lt-grid li{background:var(--panel);padding:14px 14px 16px;min-height:104px}
+.lt-grid .n{display:block;font-size:.72rem;color:var(--mut);letter-spacing:.1em;margin-bottom:8px}
+.lt-grid b{display:block;font-size:.95rem;font-weight:600;line-height:1.25;margin-bottom:5px}
+.lt-grid small{display:block;color:var(--mut);font-size:.78rem;line-height:1.35}
+.lt-foot{font-size:.68rem;letter-spacing:.06em;color:#6f819c;padding:18px 0 40px}
+body.is-dark .loading{padding:120px 0}
+body.is-dark .spin{border-color:var(--line);border-top-color:var(--acc)}
+body.is-dark .loading .meta{color:var(--mut)}
+body.is-dark .loading h2{font-family:Georgia,serif}
 /* report */
 .top{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 0;flex-wrap:wrap}
 .title{padding:24px 0 8px}
@@ -87,31 +121,54 @@ footer{margin:40px 0;color:var(--mut);font-size:.8rem}
 }
 </style>
 </head>
-<body>
+<body class="is-dark">
 <div class="wrap">
 
 <div id="landing">
-  <div class="hero">
-    <div class="logo">Tear<b>down</b></div>
-    <h1>Two brands. One honest comparison.</h1>
-    <p>Pick two Indian health-food or clean-label brands. We research the web, read the actual ingredient panels, and return an eight-part competitor teardown built for founders.</p>
+  <div class="lt-bar"><div class="lt-logo">TEAR<b>DOWN</b></div><div class="lt-tag">Competitor teardown · India health-food &amp; clean-label</div></div>
+
+  <div class="lt-main">
+    <header>
+      <p class="lt-eyebrow">Structured report · 8 sections · fixed order</p>
+      <h1>Two brands. One honest comparison.</h1>
+      <p class="lt-lede">Pick two Indian health-food or clean-label brands. We research the web, read the actual ingredient panels, and return an eight-part competitor teardown — built for founders, and anyone deciding whether to become one.</p>
+    </header>
+
+    <form id="form" class="lt-form">
+      <div class="lt-ph"><span>Input</span><span>2 required · 1 optional</span></div>
+      <div class="lt-row">
+        <label><span class="lab">Brand A</span><input name="brandA" required maxlength="80" placeholder="e.g. RiteBite Max Protein" autocomplete="off"></label>
+        <label><span class="lab">Brand B</span><input name="brandB" required maxlength="80" placeholder="e.g. The Whole Truth" autocomplete="off"></label>
+      </div>
+      <label><span class="lab">Product category <i>optional</i></span><input name="category" maxlength="80" placeholder="e.g. protein bars, muesli, sunscreen" autocomplete="off"></label>
+      <p class="lt-hint">Leave the category blank and it is inferred from the two brands.</p>
+      <button id="go" type="submit">Generate teardown &rarr;</button>
+      <p class="lt-note">Takes a few minutes · Download as PDF when done</p>
+      <div id="formerr" class="err hidden"></div>
+    </form>
   </div>
-  <form id="form">
-    <div class="row">
-      <label>Brand A<input name="brandA" required maxlength="80" placeholder="e.g. RiteBite Max Protein"></label>
-      <label>Brand B<input name="brandB" required maxlength="80" placeholder="e.g. The Whole Truth"></label>
-    </div>
-    <label>Product category <span style="font-weight:400;color:var(--mut)">(optional)</span><input name="category" maxlength="80" placeholder="e.g. protein bars, muesli, sunscreen. Leave blank to infer"></label>
-    <button id="go" type="submit">Generate teardown</button>
-    <div id="formerr" class="err hidden"></div>
-  </form>
+
+  <section class="lt-contents" aria-label="Report contents">
+    <div class="lt-ch"><b>Report contents</b><span>Every report follows this structure</span></div>
+    <ol class="lt-grid">
+      <li><span class="n">01</span><b>Two Brands, Two Plays</b><small>Positioning contrast</small></li>
+      <li><span class="n">02</span><b>Growth &amp; Ownership</b><small>Founding year, funding, ownership</small></li>
+      <li><span class="n">03</span><b>Channel Reach</b><small>Distribution footprint</small></li>
+      <li><span class="n">04</span><b>Hero Metric</b><small>Per-unit cost, computed</small></li>
+      <li><span class="n">05</span><b>Claims vs Ingredient Reality</b><small>Headline claim vs the actual label</small></li>
+      <li><span class="n">06</span><b>Buyer Sentiment</b><small>Public ratings and review volume</small></li>
+      <li><span class="n">07</span><b>Market White Space</b><small>The unclaimed pricing and positioning gap</small></li>
+      <li><span class="n">08</span><b>Strategic Takeaway</b><small>Where a founder should position</small></li>
+    </ol>
+  </section>
+  <div class="lt-foot">AI-generated from public web data. Verify before making decisions.</div>
 </div>
 
 <div id="loading" class="loading hidden">
   <div class="spin"></div>
   <h2>Researching…</h2>
   <p id="status" class="meta">Starting research…</p>
-  <p class="meta">This usually takes 1–3 minutes. Please keep this tab open.</p>
+  <p class="meta">This usually takes a few minutes. Please keep this tab open.</p>
 </div>
 
 <div id="report" class="hidden"></div>
@@ -120,7 +177,10 @@ footer{margin:40px 0;color:var(--mut);font-size:.8rem}
 <script>
 const $ = (s) => document.querySelector(s);
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const show = (id) => ["landing","loading","report"].forEach((x) => $("#"+x).classList.toggle("hidden", x !== id));
+const show = (id) => {
+  ["landing","loading","report"].forEach((x) => $("#"+x).classList.toggle("hidden", x !== id));
+  document.body.classList.toggle("is-dark", id !== "report"); // landing + loading are dark, the report keeps its own theme
+};
 
 $("#form").addEventListener("submit", async (e) => {
   e.preventDefault();
