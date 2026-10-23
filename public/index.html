@@ -73,6 +73,7 @@ tr:last-child td{border-bottom:0}
 .prod li{margin:6px 0}
 .sw{display:inline-block;background:#fff4e5;border:1px solid #e0a100;color:#7a5200;border-radius:8px;padding:4px 8px;font-size:.85rem;margin-top:4px}
 .pname{font-size:.8rem;font-weight:600;margin:0 0 6px;color:var(--ink)}
+.inferred{display:inline-block;background:#eef6ff;border:1px solid #b9d6f5;color:#14416e;border-radius:8px;padding:6px 10px;margin:8px 0 4px;font-size:.9rem}
 .hl{background:linear-gradient(135deg,#fff3ec,#fff);border:1px solid var(--line);border-left:6px solid var(--c7);border-radius:12px;padding:16px}
 ol.moves{padding-left:20px}ol.moves li{margin:8px 0}
 .srcs{font-size:.8rem;color:var(--mut);word-break:break-all}
@@ -100,7 +101,7 @@ footer{margin:40px 0;color:var(--mut);font-size:.8rem}
       <label>Brand A<input name="brandA" required maxlength="80" placeholder="e.g. RiteBite Max Protein"></label>
       <label>Brand B<input name="brandB" required maxlength="80" placeholder="e.g. The Whole Truth"></label>
     </div>
-    <label>Product category<input name="category" required maxlength="80" placeholder="e.g. protein bars, muesli, sunscreen"></label>
+    <label>Product category <span style="font-weight:400;color:var(--mut)">(optional)</span><input name="category" maxlength="80" placeholder="e.g. protein bars, muesli, sunscreen. Leave blank to infer"></label>
     <button id="go" type="submit">Generate teardown</button>
     <div id="formerr" class="err hidden"></div>
   </form>
@@ -189,7 +190,7 @@ function render(r) {
     const v = ["match","partial","mismatch","unverified"].includes(x.verdict) ? x.verdict : "unverified";
     const panel = x.ingredient_panel
       ? `<div class="panel"><b>Ingredient panel:</b> ${esc(x.ingredient_panel)}</div>`
-      : `<div class="panel notfound"><b>No verifiable ingredient panel found.</b> We did not guess one.</div>`;
+      : `<div class="panel notfound"><b>No verifiable ingredient panel was found.</b> None has been guessed or reconstructed.</div>`;
     return `${pname(i)}<p><span class="verdict v-${v}">${VERDICT[v]}</span></p><p class="kv"><b>Headline claim</b></p><blockquote>${esc(x.headline_claim)}</blockquote>${panel}<p>${esc(x.explanation)}</p>`;
   };
   const sent = (x = {}) => `<tr><td>${esc(x.name)}<br><span class="kv">${esc(x.product)}</span></td><td>${esc(x.platform) || "—"}</td><td>${x.rating == null ? "<i>Not verified</i>" : "<b>" + esc(x.rating) + "</b> / 5"}</td><td>${x.review_count == null ? "<i>Not verified</i>" : Number(x.review_count).toLocaleString("en-IN")}</td><td>${esc(x.note)}</td></tr>`;
@@ -198,6 +199,7 @@ function render(r) {
   <div class="top noprint"><div class="logo">Tear<b>down</b></div><div><button class="btn2" onclick="location.hash='';location.reload()">New teardown</button> <button onclick="window.print()">Download as PDF</button></div></div>
   <div class="title">
     <div class="meta">TEARDOWN · ${esc(r.category)}</div>
+    ${r.category_inferred ? `<p class="inferred">Comparing in: <b>${esc(r.category)}</b> — inferred, not specified by user.</p>` : ""}
     <h1><span class="ca">${esc(A)}</span> <span class="vs">vs</span> <span class="cb">${esc(B)}</span></h1>
     <div class="meta">Generated ${new Date(r.generated_at).toLocaleString("en-IN")} · web-researched; prices and ratings change.</div>
   </div>

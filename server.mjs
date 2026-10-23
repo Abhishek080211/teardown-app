@@ -45,7 +45,18 @@ const lockedOut = () => {
 };
 const REPORTS_PER_HOUR = Number(process.env.REPORTS_PER_HOUR) || 10;
 
+// Every string that can reach the report is written in impersonal, third-person analytical voice.
+const VOICE = `Voice (applies to EVERY string you write, including notes, explanations and reasons): impersonal, third-person, analytical. Never use first person ("I", "I'm", "I've", "my", "me", "we", "our") and never refer to yourself, your searches or your process ("my search", "I found", "I could not", "not directly visible to me", "I did not check"). Put uncertainty on the DATA, not on yourself:
+- "I could not verify X" -> "X is unconfirmed" or "X could not be independently verified"
+- "I did not find a rating" -> "No rating was located for this listing"
+- "not visible to me" -> "not shown on the listing"
+- "I took the figure from..." -> "The figure is taken from..."
+State findings as facts about the brands and products.`;
+
+// (SYSTEM, SELECT_SYSTEM, SENTIMENT_SYSTEM and INFER_SYSTEM below all include VOICE.)
 const SYSTEM = `You are a competitive-intelligence analyst producing a founder-facing teardown of two Indian health-food / clean-label brands in one product category.
+
+${VOICE}
 
 Research rules:
 - Use web search to find REAL, CURRENT facts. Search for each brand's founding year, ownership/funding, price and pack size for a comparable SKU, distribution channels, and marketplace ratings/review counts.
@@ -169,6 +180,8 @@ const SELECT_SYSTEM = `You choose which exact products to compare for a competit
    - price_source and spec_source: where each number came from (retailer + URL).
 Never invent or estimate numbers. Verify price, pack_count and spec_value for both products before answering. If a candidate SKU's protein/spec or price cannot be verified, switch to another SKU of the same brand where all three can be verified. Only if no SKU can be verified, set that product's price_inr or spec_value to null.
 
+${VOICE}
+
 You have a generous search budget (about ${SELECT_MAX_SEARCHES} searches). Work efficiently and stop searching once both products are fully verified.
 
 Reply with ONE JSON object, no prose, no markdown fences:
@@ -203,12 +216,93 @@ function computeHero(metric, p) {
   return { value, display: `₹${value.toFixed(2)}`, basis };
 }
 
+// ---- Voice enforcement: rewrite any first-person sentence that slips through, once, before it is saved/shown ----
+const FIRST_PERSON = [/\bI(?:'(?:m|ve|d|ll))?\b/, /\b(?:me|my|mine|myself|we|our|ours)\b/i];
+const VOICE_SKIP_KEYS = new Set(["headline_claim", "ingredient_panel", "product_name", "locked_name", "listing_url", "source_url", "url", "title"]); // verbatim quotes, names, links
+const hasFirstPerson = (t) => !/^https?:\/\//.test(t) && FIRST_PERSON.some((re) => re.test(t));
+function collectVoiceTargets(node, out = []) {
+  const visit = (parent, key, v) => {
+    if (typeof v === "string") { if (hasFirstPerson(v)) out.push({ parent, key, text: v }); }
+    else if (v && typeof v === "object") collectVoiceTargets(v, out);
+  };
+  if (Array.isArray(node)) node.forEach((v, i) => visit(node, i, v));
+  else if (node && typeof node === "object") for (const [k, v] of Object.entries(node)) if (!VOICE_SKIP_KEYS.has(k)) visit(node, k, v);
+  return out;
+}
+const REWRITE_SYSTEM = `Rewrite each string in the JSON array you are given into impersonal, third-person analytical voice. Remove every first-person word (I, my, me, we, our) and every reference to the writer's own searching or process. Keep every fact, number, price, name and URL exactly as written. Examples: "I could not verify the founding year" -> "The founding year could not be independently verified."; "I took the 6,549 from the page" -> "The figure of 6,549 is taken from the page."; "not visible to me" -> "not shown on the listing". Reply with ONLY a JSON array of the rewritten strings, same length and order, no prose, no markdown.`;
+async function impersonalise(obj) {
+  const targets = collectVoiceTargets(obj);
+  if (!targets.length) return { rewritten: 0, remaining: 0 };
+  let rewritten = 0;
+  try {
+    const msg = await client.messages.create({
+      model: MODEL,
+      max_tokens: 16000,
+      output_config: { effort: "low" },
+      system: REWRITE_SYSTEM,
+      messages: [{ role: "user", content: JSON.stringify(targets.map((t) => t.text)) }],
+    });
+    const raw = msg.content.filter((b) => b.type === "text").map((b) => b.text).join("");
+    const arr = JSON.parse(raw.slice(raw.indexOf("["), raw.lastIndexOf("]") + 1));
+    if (Array.isArray(arr) && arr.length === targets.length) {
+      targets.forEach((t, i) => {
+        if (typeof arr[i] === "string" && arr[i].trim() && !hasFirstPerson(arr[i])) { t.parent[t.key] = arr[i]; rewritten++; }
+      });
+    }
+  } catch (e) {
+    console.error("voice rewrite failed:", e.message);
+  }
+  return { rewritten, remaining: collectVoiceTargets(obj).length };
+}
+
+// ---- Category inference (only when the user leaves the category blank) ----
+const INFER_MAX_SEARCHES = 8;
+const INFER_SYSTEM = `You check whether two Indian consumer brands share ONE clear product category in which their products can be compared like-for-like.
+
+Use web search briefly to identify what each brand mainly sells in India. Then decide:
+- "shared_category": a specific product category both brands actually sell, in the plural, as a shopper would search it (e.g. "protein bars", "muesli", "sunscreen"). Broad umbrellas such as "health food", "snacks", "wellness" or "FMCG" do NOT count: a per-unit price comparison must make sense.
+- If the brands mainly sell different kinds of products (e.g. a protein-bar brand and a sunscreen brand), or either brand cannot be found, or it is a judgement call between several categories, set "shared_category" to null. Prefer null over a guess.
+
+${VOICE}
+
+Reply with ONE JSON object, no prose, no markdown fences:
+{"shared_category": string|null, "brand_a_sells": string, "brand_b_sells": string, "reason": string}`;
+
+async function inferCategory({ brandA, brandB }, onStatus, sources) {
+  const key = "infer|" + [norm(brandA), norm(brandB)].sort().join("|");
+  const db = loadSkus();
+  if (db[key]?.category) return db[key].category; // keep the inferred category stable across runs
+  onStatus("No category given. Checking what the two brands have in common…");
+  const { text } = await searchChat({
+    system: INFER_SYSTEM,
+    user: `Brand A: ${brandA}\nBrand B: ${brandB}`,
+    maxUses: INFER_MAX_SEARCHES,
+    onStatus,
+    sources,
+  });
+  const r = extractJson(text);
+  const cat = typeof r.shared_category === "string" ? r.shared_category.trim().slice(0, 80) : "";
+  if (!cat) {
+    await impersonalise(r);
+    throw new Error(
+      `No clear shared product category was found for ${brandA} and ${brandB}` +
+        (r.brand_a_sells && r.brand_b_sells ? ` (${brandA}: ${r.brand_a_sells}; ${brandB}: ${r.brand_b_sells})` : "") +
+        `. Please specify a category (for example "protein bars" or "muesli") and try again.`,
+    );
+  }
+  db[key] = { category: cat, brand_a_sells: r.brand_a_sells, brand_b_sells: r.brand_b_sells, inferred_at: new Date().toISOString() };
+  saveSkus(db);
+  return cat;
+}
+
 const SENTIMENT_SYSTEM = `You record public buyer ratings for two specific, already-chosen products. Use web search.
 
 For each product find the star rating (out of 5) and the number of ratings/reviews shown for THAT product's listing. Use the reference listing given; if it isn't reachable, use the same named product on another major Indian retailer and say which. Copy the numbers as displayed; never estimate, average across different products, or substitute another flavour, size or pack.
 - review_count is the count displayed next to the rating (ratings or reviews, say which in "note").
 - If you cannot verify a rating or count for a product, set it to null and explain in "note". Do not guess.
 Stop searching once both are found or clearly unavailable.
+
+${VOICE}
 
 Reply with ONE JSON object, no prose, no markdown fences:
 {"sentiment": [{"brand": string, "platform": string, "rating": number|null, "review_count": number|null, "source_url": string|null, "note": string}, {...}]}
@@ -252,9 +346,11 @@ async function selectProducts({ brandA, brandB, category }, onStatus, sources) {
   const db = loadSkus();
   const hit = db[key];
   if (hit && hit.v >= 2) {
+    if (hit.v >= SKU_SCHEMA_VERSION && (await impersonalise(hit)).rewritten) saveSkus(db); // clean older first-person notes once
     if (hit.v < SKU_SCHEMA_VERSION) {
       // Older lock: keep the same products, capture sentiment once and save it.
       await captureSentiment(hit, onStatus, sources);
+      await impersonalise(hit);
       hit.v = SKU_SCHEMA_VERSION;
       saveSkus(db);
     }
@@ -286,9 +382,11 @@ async function selectProducts({ brandA, brandB, category }, onStatus, sources) {
     selection_searches: searches,
     selection_limit_hit: limitHit,
   };
+  await impersonalise(rec);
   db[key] = rec;
   saveSkus(db); // keep the chosen products even if the sentiment step fails; the next run finishes the upgrade
   await captureSentiment(rec, onStatus, sources);
+  await impersonalise(rec);
   rec.v = SKU_SCHEMA_VERSION;
   saveSkus(db);
   return { ...rec, reused: false };
@@ -296,6 +394,8 @@ async function selectProducts({ brandA, brandB, category }, onStatus, sources) {
 
 async function generateReport({ brandA, brandB, category }, onStatus) {
   const sources = new Map();
+  const categoryInferred = !category;
+  if (categoryInferred) category = await inferCategory({ brandA, brandB }, onStatus, sources);
   const sel = await selectProducts({ brandA, brandB, category }, onStatus, sources);
   const hero = sel.products.map((p) => computeHero(sel.metric, p));
   const lock = sel.products
@@ -382,6 +482,9 @@ async function generateReport({ brandA, brandB, category }, onStatus) {
   report.sources = [...sources].slice(0, 30).map(([url, title]) => ({ url, title }));
   report.generated_at = new Date().toISOString();
   report.model = MODEL;
+  report.category = category;
+  report.category_inferred = categoryInferred;
+  report.voice_check = await impersonalise(report); // rewrite any first-person phrasing that slipped through
   return report;
 }
 
@@ -453,7 +556,7 @@ const server = http.createServer(async (req, res) => {
       let body;
       try { body = JSON.parse(await readBody(req)); } catch { return json(400, { error: "Invalid request" }); }
       const brandA = clean(body.brandA, 80), brandB = clean(body.brandB, 80), category = clean(body.category, 80);
-      if (!brandA || !brandB || !category) return json(400, { error: "Brand A, Brand B and category are required." });
+      if (!brandA || !brandB) return json(400, { error: "Brand A and Brand B are required." });
       if (brandA.toLowerCase() === brandB.toLowerCase()) return json(400, { error: "Pick two different brands." });
       if (!API_KEY) return json(500, { error: "Server is missing TEARDOWN_API_KEY." });
       const id = randomUUID();
