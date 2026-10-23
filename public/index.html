@@ -110,7 +110,8 @@ tr:last-child td{border-bottom:0}
 .hl{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:2px;padding:16px;color:var(--soft)}
 ol.moves{padding-left:22px;color:var(--soft)}ol.moves li{margin:8px 0}ol.moves li::marker{color:var(--acc);font-family:var(--mono);font-weight:700}
 .srcs{font-size:.8rem;color:var(--mut);word-break:break-all}
-.srcs a{color:#9fb1cc}
+.srcs a,.src a{color:#9fb1cc}
+.src{font-family:var(--mono);font-size:.72rem;letter-spacing:.04em}
 footer{margin:40px 0;color:var(--mut);font-size:.8rem}
 footer ul{padding-left:18px}
 @media print{
@@ -180,7 +181,8 @@ footer ul{padding-left:18px}
 
 <script>
 const $ = (s) => document.querySelector(s);
-const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const TAG = /<\/?[a-zA-Z][a-zA-Z0-9-]*(?:\s[^<>]*)?\/?>/g; // never show raw markup (e.g. citation tags) in report text
+const esc = (v) => String(v ?? "").replace(TAG, "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const show = (id) => {
   ["landing","loading","report"].forEach((x) => $("#"+x).classList.toggle("hidden", x !== id));
   document.body.classList.toggle("is-dark", id !== "report"); // landing + loading are dark, the report keeps its own theme
@@ -249,7 +251,8 @@ function render(r) {
   const growth = (x = {}) => `<p class="kv"><b>Founded:</b> ${val(x.founded)}</p><p class="kv"><b>Ownership:</b> ${val(x.ownership)}</p><p class="kv"><b>Funding:</b> ${val(x.funding)}</p><p>${esc(x.note)}</p>`;
   const chan = (x = {}) => `<p>${esc(x.summary)}</p>${(x.channels||[]).map((c)=>`<span class="pill">${esc(c)}</span>`).join("")}`;
   const pname = (i) => `<p class="pname">${esc((r.products||[])[i]?.product_name)}</p>`;
-  const hero = (x = {}, i) => `${pname(i)}<div class="big">${val(x.display, "n/a")}</div><div class="unit">${esc(hm.unit)}</div><p class="kv">${esc(x.basis)}</p>`;
+  const link = (ref, what) => !ref ? "" : `${esc(what)}: ${ref.url && /^https?:\/\//.test(ref.url) ? `<a href="${esc(ref.url)}" target="_blank" rel="noopener">${esc(ref.label)}</a>` : esc(ref.label)}`;
+  const hero = (x = {}, i) => `${pname(i)}<div class="big">${val(x.display, "n/a")}</div><div class="unit">${esc(hm.unit)}</div><p class="kv">${esc(x.basis)}</p>${x.price_ref ? `<p class="kv src">${link(x.price_ref, "Price")} · ${link(x.spec_ref, x.spec_ref?.what ? x.spec_ref.what[0].toUpperCase() + x.spec_ref.what.slice(1) : "Spec")}</p>` : ""}`;
   const claim = (x = {}, i) => {
     const v = ["match","partial","mismatch","unverified"].includes(x.verdict) ? x.verdict : "unverified";
     const panel = x.ingredient_panel

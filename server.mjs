@@ -51,7 +51,9 @@ const VOICE = `Voice (applies to EVERY string you write, including notes, explan
 - "I did not find a rating" -> "No rating was located for this listing"
 - "not visible to me" -> "not shown on the listing"
 - "I took the figure from..." -> "The figure is taken from..."
-State findings as facts about the brands and products.`;
+State findings as facts about the brands and products.
+
+Format: plain text only in every string. No HTML or XML tags (never <cite> or any citation markup), no markdown. Name sources in plain words (for example "Amazon.in listing").`;
 
 // (SYSTEM, SELECT_SYSTEM, SENTIMENT_SYSTEM and INFER_SYSTEM below all include VOICE.)
 const SYSTEM = `You are a competitive-intelligence analyst producing a founder-facing teardown of two Indian health-food / clean-label brands in one product category.
@@ -105,11 +107,56 @@ Output: after researching, reply with ONE JSON object and nothing else (no markd
   "data_gaps": [string]            // anything you could not verify
 }`;
 
+// Web-search citations can leak into text as <cite index="..">...</cite>. Keep the cited text, drop all markup.
+const TAG_TEST = /<\/?[a-zA-Z]/;
+const TAG_RE = /<\/?[a-zA-Z][a-zA-Z0-9-]*(?:\s[^<>]*)?\/?>/g;
+function cleanStrings(node, stat = { changed: 0 }) {
+  const fix = (v) => {
+    if (typeof v !== "string" || !TAG_TEST.test(v)) return v;
+    const out = v.replace(TAG_RE, "").replace(/[ \t]{2,}/g, " ").trim();
+    if (out !== v) stat.changed++;
+    return out;
+  };
+  if (Array.isArray(node)) node.forEach((v, i) => (typeof v === "string" ? (node[i] = fix(v)) : cleanStrings(v, stat)));
+  else if (node && typeof node === "object") for (const [k, v] of Object.entries(node)) typeof v === "string" ? (node[k] = fix(v)) : cleanStrings(v, stat);
+  return stat;
+}
+
+// Every balanced {...} block in the text (string-aware), so a stray brace in surrounding prose can't break parsing.
+function jsonCandidates(text) {
+  const out = [];
+  for (let i = text.indexOf("{"); i >= 0; i = text.indexOf("{", i + 1)) {
+    let depth = 0, inStr = false, escaped = false;
+    for (let j = i; j < text.length; j++) {
+      const c = text[j];
+      if (inStr) { if (escaped) escaped = false; else if (c === "\\") escaped = true; else if (c === '"') inStr = false; continue; }
+      if (c === '"') inStr = true;
+      else if (c === "{") depth++;
+      else if (c === "}" && --depth === 0) { out.push(text.slice(i, j + 1)); break; }
+    }
+  }
+  return out;
+}
+
 function extractJson(text) {
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
   if (start < 0 || end < start) throw new Error("Model did not return JSON");
-  return JSON.parse(text.slice(start, end + 1));
+  let obj;
+  try {
+    obj = JSON.parse(text.slice(start, end + 1));
+  } catch {
+    // Fall back to the largest block that parses on its own (the report is always the biggest object).
+    for (const c of jsonCandidates(text).sort((a, b) => b.length - a.length)) {
+      try { obj = JSON.parse(c); break; } catch { /* try the next one */ }
+    }
+    if (!obj) {
+      console.error("Unparseable model reply. Start:", text.slice(0, 300), "... End:", text.slice(-300));
+      throw new Error("Model did not return valid JSON; please try again.");
+    }
+  }
+  cleanStrings(obj);
+  return obj;
 }
 
 // One web-search conversation; resumes pause_turn; returns final text + sources seen.
@@ -177,7 +224,7 @@ const SELECT_SYSTEM = `You choose which exact products to compare for a competit
    - price_inr: the selling price shown on that listing, as a plain number in rupees.
    - pack_count: how many single units that price buys (a 6-pack at 415 -> pack_count 6; a single bar -> 1).
    - spec_value: the amount of the spec in ONE single unit, from the label or listing (e.g. 10 for 10g protein in one bar). Use a printed/label figure, not an estimate.
-   - price_source and spec_source: where each number came from (retailer + URL).
+   - price_source and spec_source: where each number came from, as {"retailer": short site name such as "Amazon.in", "url": the product page URL or null}. No sentences.
 Never invent or estimate numbers. Verify price, pack_count and spec_value for both products before answering. If a candidate SKU's protein/spec or price cannot be verified, switch to another SKU of the same brand where all three can be verified. Only if no SKU can be verified, set that product's price_inr or spec_value to null.
 
 ${VOICE}
@@ -187,7 +234,7 @@ You have a generous search budget (about ${SELECT_MAX_SEARCHES} searches). Work 
 Reply with ONE JSON object, no prose, no markdown fences:
 {"comparison_basis": string,
  "metric": {"name": string, "spec_name": string, "spec_unit": string, "per": number, "unit_label": string},
- "products": [{"brand": string, "product_name": string|null, "unit_size": string, "spec_value": number|null, "spec_source": string, "price_inr": number|null, "pack_count": number|null, "price_source": string, "retailer": string, "listing_url": string|null, "why_chosen": string}, {...}]}
+ "products": [{"brand": string, "product_name": string|null, "unit_size": string, "spec_value": number|null, "spec_source": {"retailer": string, "url": string|null}, "price_inr": number|null, "pack_count": number|null, "price_source": {"retailer": string, "url": string|null}, "retailer": string, "listing_url": string|null, "why_chosen": string}, {...}]}
 "unit_label" example: "₹ per 10g protein". Products must be in the order Brand A, Brand B.`;
 
 const SKU_SCHEMA_VERSION = 3; // v2 added price/pack/spec; v3 also locks rating and review count
@@ -206,14 +253,39 @@ function validateSelection(sel) {
 
 // The hero metric is computed here, in code, from locked raw numbers. The model never states it.
 const r2 = (n) => Math.round(n * 100) / 100;
+
+// Turn a source (free text with a URL buried in it, or {retailer,url}) into a short label plus a link.
+const SITE_LABELS = [[/amazon\.in$/, "Amazon.in"], [/blinkit\.com$/, "Blinkit"], [/swiggy\.com$/, "Swiggy Instamart"], [/zepto/, "Zepto"], [/bigbasket/, "BigBasket"], [/flipkart/, "Flipkart"], [/jiomart/, "JioMart"], [/nykaa/, "Nykaa"], [/pharmeasy/, "PharmEasy"], [/1mg\.com$/, "Tata 1mg"], [/apollopharmacy/, "Apollo Pharmacy"], [/openfoodfacts/, "OpenFoodFacts"]];
+function sourceRef(src, fallbackLabel) {
+  let url = null;
+  let label = null;
+  if (src && typeof src === "object") { url = src.url || null; label = src.retailer || src.label || null; }
+  else if (typeof src === "string") {
+    const urls = src.match(/https?:\/\/[^\s)\];,'"]+/g) || [];
+    url = urls.find((u) => /\/(dp|prn|product|p)\//.test(u)) || urls[0] || null; // prefer a product page over a search page
+  }
+  if (url && !/^https?:\/\//.test(url)) url = null;
+  let host = "";
+  try { host = new URL(url).hostname.replace(/^www\./, ""); } catch { /* no url */ }
+  const known = SITE_LABELS.find(([re]) => re.test(host))?.[1];
+  return { label: known || label || host || fallbackLabel || "source", url };
+}
+
+// The hero metric is computed here, in code, from locked raw numbers. The model never states it.
 function computeHero(metric, p) {
   const perUnit = p.price_inr / p.pack_count;
   const value = r2((perUnit / p.spec_value) * metric.per);
+  const unit = `${metric.per}${metric.spec_unit} ${metric.spec_name}`;
   const basis =
-    `₹${p.price_inr} for ${p.pack_count} unit${p.pack_count === 1 ? "" : "s"} = ₹${r2(perUnit)} per unit; ` +
-    `${p.spec_value}${metric.spec_unit} ${metric.spec_name} per unit, so ₹${r2(perUnit)} ÷ ${p.spec_value} × ${metric.per} = ₹${value} per ${metric.per}${metric.spec_unit} ${metric.spec_name}. ` +
-    `Price from ${p.price_source || p.retailer}; ${metric.spec_name} from ${p.spec_source || "the listing"}.`;
-  return { value, display: `₹${value.toFixed(2)}`, basis };
+    (p.pack_count === 1 ? `₹${p.price_inr} for 1 unit. ` : `₹${p.price_inr} ÷ ${p.pack_count} units = ₹${r2(perUnit)} per unit. `) +
+    `₹${r2(perUnit)} ÷ ${p.spec_value}${metric.spec_unit} ${metric.spec_name} × ${metric.per} = ₹${value} per ${unit}.`;
+  return {
+    value,
+    display: `₹${value.toFixed(2)}`,
+    basis,
+    price_ref: sourceRef(p.price_source, p.retailer),
+    spec_ref: { ...sourceRef(p.spec_source, p.retailer), what: metric.spec_name },
+  };
 }
 
 // ---- Voice enforcement: rewrite any first-person sentence that slips through, once, before it is saved/shown ----
@@ -346,6 +418,7 @@ async function selectProducts({ brandA, brandB, category }, onStatus, sources) {
   const db = loadSkus();
   const hit = db[key];
   if (hit && hit.v >= 2) {
+    if (cleanStrings(hit).changed) saveSkus(db); // strip any markup saved by older runs
     if (hit.v >= SKU_SCHEMA_VERSION && (await impersonalise(hit)).rewritten) saveSkus(db); // clean older first-person notes once
     if (hit.v < SKU_SCHEMA_VERSION) {
       // Older lock: keep the same products, capture sentiment once and save it.
