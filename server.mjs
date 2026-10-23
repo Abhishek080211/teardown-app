@@ -359,6 +359,20 @@ async function generateReport({ brandA, brandB, category }, onStatus) {
   return report;
 }
 
+// Errors that arrive mid-stream carry no HTTP status; the details are in the JSON body (or message).
+const ERROR_TYPE_STATUS = {
+  invalid_request_error: 400, authentication_error: 401, permission_error: 403, not_found_error: 404,
+  request_too_large: 413, rate_limit_error: 429, api_error: 500, overloaded_error: 529,
+};
+function describeError(e) {
+  if (!(e instanceof Anthropic.APIError)) return e.message;
+  let body = e.error;
+  if (!body?.error) { try { body = JSON.parse(e.message); } catch { body = null; } }
+  const status = e.status ?? ERROR_TYPE_STATUS[body?.error?.type] ?? "no status";
+  const id = body?.request_id ? ` [request ${body.request_id}]` : "";
+  return `API error (${status}): ${body?.error?.message ?? e.message}${id}`;
+}
+
 // ---- jobs & rate limiting (in-memory) ----
 const jobs = new Map();
 const hits = new Map();
@@ -415,7 +429,7 @@ const server = http.createServer(async (req, res) => {
         .catch((e) => {
           console.error(e);
           job.status = "error";
-          job.error = e instanceof Anthropic.APIError ? `API error (${e.status}): ${e.message}` : e.message;
+          job.error = describeError(e);
         });
       return json(202, { id });
     }
