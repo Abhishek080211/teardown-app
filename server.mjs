@@ -143,9 +143,11 @@ function extractJson(text) {
   const end = text.lastIndexOf("}");
   if (start < 0 || end < start) throw new Error("Model did not return JSON");
   let obj;
+  let path = "direct";
   try {
     obj = JSON.parse(text.slice(start, end + 1));
   } catch {
+    path = "fallback";
     // Fall back to the largest block that parses on its own (the report is always the biggest object).
     for (const c of jsonCandidates(text).sort((a, b) => b.length - a.length)) {
       try { obj = JSON.parse(c); break; } catch { /* try the next one */ }
@@ -155,7 +157,8 @@ function extractJson(text) {
       throw new Error("Model did not return valid JSON; please try again.");
     }
   }
-  cleanStrings(obj);
+  const { changed } = cleanStrings(obj);
+  console.log(`[json] parse=${path} chars=${text.length} markup_stripped_from=${changed}_strings`);
   return obj;
 }
 
