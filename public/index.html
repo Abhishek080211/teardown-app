@@ -253,12 +253,18 @@ function render(r) {
   const pname = (i) => `<p class="pname">${esc((r.products||[])[i]?.product_name)}</p>`;
   const link = (ref, what) => !ref ? "" : `${esc(what)}: ${ref.url && /^https?:\/\//.test(ref.url) ? `<a href="${esc(ref.url)}" target="_blank" rel="noopener">${esc(ref.label)}</a>` : esc(ref.label)}`;
   const hero = (x = {}, i) => `${pname(i)}<div class="big">${val(x.display, "n/a")}</div><div class="unit">${esc(hm.unit)}</div><p class="kv">${esc(x.basis)}</p>${x.price_ref ? `<p class="kv src">${link(x.price_ref, "Price")} · ${link(x.spec_ref, x.spec_ref?.what ? x.spec_ref.what[0].toUpperCase() + x.spec_ref.what.slice(1) : "Spec")}</p>` : ""}`;
+  const RES = { text: "panel found", image_only: "image only", not_listed: "no ingredient list", unreachable: "page unreadable" };
   const claim = (x = {}, i) => {
     const v = ["match","partial","mismatch","unverified"].includes(x.verdict) ? x.verdict : "unverified";
+    const ic = x.ingredient_check || {};
+    const ps = ic.panel_source;
+    const srcLine = ps ? ` <span class="kv src">Source: ${ps.url && /^https?:\/\//.test(ps.url) ? `<a href="${esc(ps.url)}" target="_blank" rel="noopener">${esc(ps.retailer || "source")}</a>` : esc(ps.retailer || "source")}</span>` : "";
     const panel = x.ingredient_panel
-      ? `<div class="panel"><b>Ingredient panel:</b> ${esc(x.ingredient_panel)}</div>`
-      : `<div class="panel notfound"><b>No verifiable ingredient panel was found.</b> None has been guessed or reconstructed.</div>`;
-    return `${pname(i)}<p><span class="verdict v-${v}">${VERDICT[v]}</span></p><p class="kv"><b>Headline claim</b></p><blockquote>${esc(x.headline_claim)}</blockquote>${panel}<p>${esc(x.explanation)}</p>`;
+      ? `<div class="panel"><b>Ingredient panel:</b> ${esc(x.ingredient_panel)}${srcLine}</div>`
+      : `<div class="panel notfound"><b>${esc(x.ingredient_note || "Ingredient panel not captured as text in available sources.")}</b></div>`;
+    const checked = (ic.sources || []).map((c) => `${c.url && /^https?:\/\//.test(c.url) ? `<a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.name)}</a>` : esc(c.name)}${c.is_brand_site ? " (brand site)" : ""} — ${esc(RES[c.result] || c.result)}`);
+    const checkedLine = checked.length ? `<p class="kv src">Sources checked: ${checked.join(" · ")}</p>` : "";
+    return `${pname(i)}<p><span class="verdict v-${v}">${VERDICT[v]}</span></p><p class="kv"><b>Headline claim</b></p><blockquote>${esc(x.headline_claim)}</blockquote>${panel}${checkedLine}<p>${esc(x.explanation)}</p>`;
   };
   const sent = (x = {}) => `<tr><td>${esc(x.name)}<br><span class="kv">${esc(x.product)}</span></td><td>${esc(x.platform) || "—"}</td><td>${x.rating == null ? "<i>Not verified</i>" : "<b>" + esc(x.rating) + "</b> / 5"}</td><td>${x.review_count == null ? "<i>Not verified</i>" : Number(x.review_count).toLocaleString("en-IN")}</td><td>${esc(x.note)}</td></tr>`;
   const gaps = (r.data_gaps || []);
