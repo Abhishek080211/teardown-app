@@ -64,7 +64,8 @@ ${VOICE}
 Research rules:
 - Use web search to find REAL, CURRENT facts. Search for each brand's founding year, ownership/funding, price and pack size for a comparable SKU, distribution channels, and marketplace ratings/review counts.
 - Ingredient panels are captured and verified by the server (brand website first, then at least one more source) and given to you in the user message. Do NOT search for ingredient panels. Compare each brand's headline claim against the panel provided, and judge only that.
-- If no panel text is provided for a brand, set verdict to "unverified" and explain what the claim could not be checked against, using the status message given. Never guess or reconstruct an ingredient list, and never state or imply that the brand discloses no ingredients: the message says why the panel was not captured as text.
+- If a brand's ingredients are only described as a consistent statement (no formal label panel), judge the claim against that statement, state clearly that it is a statement and not a verified label panel, and use verdict "match", "partial" or "mismatch" only for how the statement compares with the claim.
+- If no panel text and no stated ingredients are provided for a brand, set verdict to "unverified" and explain what the claim could not be checked against, using the status message given. Never guess or reconstruct an ingredient list, and never state or imply that the brand discloses no ingredients: the message says why the panel was not captured as text.
 - If any other fact is not verifiable, use null and say "Not verified" in the related note. Never invent numbers, ratings, funding amounts or dates. Prefer values from the source over memory.
 - Money is in INR. State the date or source context for prices and ratings when known, since they change.
 - Section 8 (takeaway) is advice for a FOUNDER deciding how to position a NEW product in this category. It is not shopper advice; do not say which brand to buy.
@@ -241,7 +242,8 @@ Reply with ONE JSON object, no prose, no markdown fences:
  "products": [{"brand": string, "product_name": string|null, "unit_size": string, "spec_value": number|null, "spec_source": {"retailer": string, "url": string|null}, "price_inr": number|null, "pack_count": number|null, "price_source": {"retailer": string, "url": string|null}, "retailer": string, "listing_url": string|null, "why_chosen": string}, {...}]}
 "unit_label" example: "₹ per 10g protein". Products must be in the order Brand A, Brand B.`;
 
-const SKU_SCHEMA_VERSION = 4; // v2 price/pack/spec; v3 rating + review count; v4 multi-platform ratings + locked ingredient panels
+const SKU_SCHEMA_VERSION = 5; // v2 price/pack/spec; v3 rating + review count; v4 multi-platform ratings + ingredient panels; v5 ingredient capture with the "stated" middle state
+const INGREDIENTS_SCHEMA = 2;
 const posNum = (n) => typeof n === "number" && Number.isFinite(n) && n > 0;
 
 function validateSelection(sel) {
@@ -492,10 +494,12 @@ Set "is_brand_site" true for the brand's own website.
 
 Panel rules: "ingredient_panel" is the ingredient list copied verbatim from a source, for the IDENTICAL product (same flavour and variant; another flavour's list is not a match). If only part of the list is visible, copy what is visible and say it is partial in "note". Never guess, reconstruct or fill in from memory. If no source gives text, use null.
 
+Stated-ingredients rule (only when ingredient_panel is null): if several DIFFERENT sources (the brand's website, retailer listings) each state the same simple composition for the IDENTICAL product in descriptive text (for example "100% roasted peanuts" or "single ingredient: roasted peanuts"), report it in "stated_ingredients" with a short "statement" (under 120 characters, in the sources' own words) and the "sources" that state it (name, url, is_brand_site). This is NOT a label panel and must not be presented as one. Report it only if at least two different sources agree for the identical product. If sources disagree, or they describe a different variant (for example one that adds whey), set "stated_ingredients" to null and explain in "note". Never invent a statement.
+
 ${VOICE}
 
 Reply with ONE JSON object, no prose, no markdown fences:
-{"ingredients": [{"brand": string, "ingredient_panel": string|null, "panel_source": {"retailer": string, "url": string|null}|null, "sources_checked": [{"name": string, "url": string|null, "is_brand_site": boolean, "result": "text"|"image_only"|"not_listed"|"unreachable"}], "note": string}, {...}]}
+{"ingredients": [{"brand": string, "ingredient_panel": string|null, "panel_source": {"retailer": string, "url": string|null}|null, "stated_ingredients": {"statement": string, "sources": [{"name": string, "url": string|null, "is_brand_site": boolean}]}|null, "sources_checked": [{"name": string, "url": string|null, "is_brand_site": boolean, "result": "text"|"image_only"|"not_listed"|"unreachable"}], "note": string}, {...}]}
 Order: Brand A, Brand B.`;
 
 function cleanIngredient(x = {}) {
@@ -509,14 +513,36 @@ function cleanIngredient(x = {}) {
       result: INGREDIENT_RESULTS.includes(c.result) ? c.result : "unreachable",
     }));
   const ps = x.panel_source && typeof x.panel_source === "object" ? { retailer: x.panel_source.retailer || null, url: /^https?:\/\//.test(x.panel_source.url || "") ? x.panel_source.url : null } : null;
-  return { ingredient_panel: panel, panel_source: panel ? ps : null, sources_checked: checked, note: x.note || "" };
+  // Middle state input: a short statement backed by at least two DIFFERENT sources (otherwise it is dropped).
+  let stated = null;
+  const st = x.stated_ingredients;
+  if (!panel && st && typeof st.statement === "string") {
+    const statement = st.statement.trim();
+    const seen = new Set();
+    const supporting = (Array.isArray(st.sources) ? st.sources : [])
+      .filter((c) => c && typeof c.name === "string" && c.name.trim())
+      .map((c) => ({ name: c.name.trim().slice(0, 60), url: typeof c.url === "string" && /^https?:\/\//.test(c.url) ? c.url : null, is_brand_site: c.is_brand_site === true }))
+      .filter((c) => (seen.has(norm(c.name)) ? false : seen.add(norm(c.name))));
+    if (statement.length >= 3 && statement.length <= 120 && supporting.length >= 2) stated = { statement, sources: supporting };
+  }
+  return { ingredient_panel: panel, panel_source: panel ? ps : null, stated, sources_checked: checked, note: x.note || "" };
 }
 
 // A missing panel only counts as "not located" if the brand's website and at least one other source were checked.
 const evidenceOk = (e) => !!e.ingredient_panel || (e.sources_checked.length >= 2 && e.sources_checked.some((c) => c.is_brand_site));
 
+// "Brand and retailers consistently state: ..." wording, depending on who the supporting sources are.
+function statedMessage(stated) {
+  const brand = stated.sources.some((c) => c.is_brand_site);
+  const retailers = stated.sources.filter((c) => !c.is_brand_site).length;
+  const who = brand ? (retailers >= 2 ? "Brand and retailers" : retailers === 1 ? "Brand and a retailer" : "Brand") : "Retailers";
+  return `No formal label panel captured. ${who} consistently state: "${stated.statement}" (sources: ${stated.sources.map((c) => c.name).join(", ")}).`;
+}
+
+// Three states: a real captured panel, a consistent stated claim (no label panel), or nothing usable (unverified).
 function ingredientStatus(e) {
   if (e.ingredient_panel) return { status: "found", message: "" };
+  if (e.stated && evidenceOk(e)) return { status: "stated", message: statedMessage(e.stated) };
   if (e.sources_checked.some((c) => c.result === "image_only"))
     return { status: "image_only", message: "Ingredient panel is shown on product packaging; not captured as text in available sources." };
   if (!evidenceOk(e)) {
@@ -558,6 +584,7 @@ async function captureIngredients(rec, onStatus, sources) {
     });
   }
   rec.ingredients = result.map((e) => ({ ...e, ...ingredientStatus(e) }));
+  rec.ingredients_schema = INGREDIENTS_SCHEMA;
   rec.ingredients_captured_at = new Date().toISOString();
   rec.ingredient_searches = searches;
   rec.ingredient_limit_hit = limitHit;
@@ -570,7 +597,7 @@ async function completeLock(rec, db, onStatus, sources) {
     await impersonalise(rec);
     saveSkus(db);
   }
-  if (!rec.ingredients) {
+  if (!rec.ingredients || rec.ingredients_schema !== INGREDIENTS_SCHEMA) {
     await captureIngredients(rec, onStatus, sources);
     await impersonalise(rec);
     saveSkus(db);
@@ -624,9 +651,10 @@ async function selectProducts({ brandA, brandB, category }, onStatus, sources) {
 
 const ingredientLine = (ing) => {
   const checked = ing.sources_checked.map((c) => `${c.name}${c.is_brand_site ? " (brand site)" : ""}: ${c.result}`).join("; ") || "none";
-  return ing.ingredient_panel
-    ? `LOCKED INGREDIENT PANEL (verified, verbatim): ${ing.ingredient_panel}  [sources checked: ${checked}]`
-    : `NO INGREDIENT PANEL CAPTURED AS TEXT. Status: ${ing.message}  [sources checked: ${checked}]`;
+  if (ing.ingredient_panel) return `LOCKED INGREDIENT PANEL (verified, verbatim): ${ing.ingredient_panel}  [sources checked: ${checked}]`;
+  if (ing.status === "stated")
+    return `NO FORMAL LABEL PANEL CAPTURED, BUT SOURCES CONSISTENTLY STATE: "${ing.stated.statement}" (${ing.stated.sources.map((c) => c.name + (c.is_brand_site ? " [brand site]" : "")).join("; ")}). Judge the claim against this statement only as a consistent description, NOT as a verified label panel, and say so.  [sources checked: ${checked}]`;
+  return `NO INGREDIENT PANEL CAPTURED AS TEXT. Status: ${ing.message}  [sources checked: ${checked}]`;
 };
 
 async function generateReport({ brandA, brandB, category }, onStatus) {
@@ -697,8 +725,11 @@ async function generateReport({ brandA, brandB, category }, onStatus) {
     const sw = report.products[i].switched;
     c.ingredient_panel = sw ? null : ing.ingredient_panel;
     c.ingredient_note = sw ? `Not shown: the report switched products, and the locked panel belongs to "${report.products[i].locked_name}".` : ing.message;
-    c.ingredient_check = { sources: ing.sources_checked, panel_source: sw ? null : ing.panel_source, status: sw ? "switched" : ing.status };
-    if (!c.ingredient_panel) c.verdict = "unverified";
+    c.ingredient_check = { sources: ing.sources_checked, panel_source: sw ? null : ing.panel_source, status: sw ? "switched" : ing.status, stated: sw ? null : ing.stated };
+    if (!c.ingredient_panel) {
+      if (!sw && ing.status === "stated") c.verdict = c.verdict === "mismatch" ? "mismatch" : "stated"; // consistent statement, not label-verified
+      else c.verdict = "unverified";
+    }
   });
 
   // Sentiment: always the locked values. Null stays "not verified" every run; a switched product gets none.

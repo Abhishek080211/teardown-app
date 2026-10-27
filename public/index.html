@@ -91,10 +91,11 @@ section{margin:0 0 8px}
 .big{font-family:var(--mono);font-size:clamp(2.4rem,10vw,4rem);font-weight:700;letter-spacing:-.05em;line-height:1;color:var(--text)}
 .unit{color:var(--mut);font-family:var(--mono);font-size:.72rem;letter-spacing:.06em;margin:6px 0 10px}
 .verdict{display:inline-block;font-family:var(--mono);font-weight:700;font-size:.68rem;padding:3px 9px;border-radius:2px;color:#fff;text-transform:uppercase;letter-spacing:.1em}
-.v-match{background:#2f8f66}.v-partial{background:#a9761a}.v-mismatch{background:#c0455f}.v-unverified{background:#56668a}
+.v-stated{background:#2f7f86}.v-match{background:#2f8f66}.v-partial{background:#a9761a}.v-mismatch{background:#c0455f}.v-unverified{background:#56668a}
 blockquote{margin:8px 0;padding:8px 12px;border-left:3px solid #3a4f73;background:var(--inset);font-family:var(--serif);font-style:italic;color:var(--soft)}
 .panel{font-size:.85rem;background:var(--inset);border:1px solid var(--line);border-radius:2px;padding:8px 10px;margin:8px 0;word-break:break-word;color:var(--soft)}
 .notfound{background:rgba(240,168,48,.08);border:1px dashed rgba(240,168,48,.65);color:var(--soft)}
+.stated{background:rgba(47,127,134,.12);border:1px solid rgba(47,127,134,.55);border-left:3px solid #2f7f86;color:var(--soft)}
 .tw{overflow-x:auto}
 table{width:100%;min-width:560px;border-collapse:collapse;background:var(--panel);border:1px solid var(--line)}
 th,td{padding:12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top;font-size:.95rem}
@@ -227,7 +228,7 @@ function fail(msg) {
   $("#formerr").classList.remove("hidden");
 }
 
-const VERDICT = {match:"Claim holds", partial:"Partly holds", mismatch:"Mismatch", unverified:"Unverified"};
+const VERDICT = {match:"Claim holds", partial:"Partly holds", mismatch:"Mismatch", unverified:"Unverified", stated:"Stated, not label-verified"};
 const NF = '<span class="verdict v-unverified">Not verified</span>';
 const val = (v, fallback = "Not verified") => (v === null || v === undefined || v === "" ? `<i>${fallback}</i>` : esc(v));
 
@@ -255,13 +256,18 @@ function render(r) {
   const hero = (x = {}, i) => `${pname(i)}<div class="big">${val(x.display, "n/a")}</div><div class="unit">${esc(hm.unit)}</div><p class="kv">${esc(x.basis)}</p>${x.price_ref ? `<p class="kv src">${link(x.price_ref, "Price")} · ${link(x.spec_ref, x.spec_ref?.what ? x.spec_ref.what[0].toUpperCase() + x.spec_ref.what.slice(1) : "Spec")}</p>` : ""}`;
   const RES = { text: "panel found", image_only: "image only", not_listed: "no ingredient list", unreachable: "page unreadable" };
   const claim = (x = {}, i) => {
-    const v = ["match","partial","mismatch","unverified"].includes(x.verdict) ? x.verdict : "unverified";
+    const v = ["match","partial","mismatch","unverified","stated"].includes(x.verdict) ? x.verdict : "unverified";
     const ic = x.ingredient_check || {};
+    const st = ic.stated;
+    const srcLink = (c) => `${c.url && /^https?:\/\//.test(c.url) ? `<a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.name)}</a>` : esc(c.name)}${c.is_brand_site ? " (brand site)" : ""}`;
     const ps = ic.panel_source;
     const srcLine = ps ? ` <span class="kv src">Source: ${ps.url && /^https?:\/\//.test(ps.url) ? `<a href="${esc(ps.url)}" target="_blank" rel="noopener">${esc(ps.retailer || "source")}</a>` : esc(ps.retailer || "source")}</span>` : "";
+    const who = (s) => { const b = s.sources.some((c) => c.is_brand_site), n = s.sources.filter((c) => !c.is_brand_site).length; return b ? (n >= 2 ? "Brand and retailers" : n === 1 ? "Brand and a retailer" : "Brand") : "Retailers"; };
     const panel = x.ingredient_panel
       ? `<div class="panel"><b>Ingredient panel:</b> ${esc(x.ingredient_panel)}${srcLine}</div>`
-      : `<div class="panel notfound"><b>${esc(x.ingredient_note || "Ingredient panel not captured as text in available sources.")}</b></div>`;
+      : st && ic.status === "stated"
+        ? `<div class="panel stated"><b>No formal label panel captured.</b><br>${esc(who(st))} consistently state: <b>“${esc(st.statement)}”</b><br><span class="kv src">Sources: ${st.sources.map(srcLink).join(" · ")}</span></div>`
+        : `<div class="panel notfound"><b>${esc(x.ingredient_note || "Ingredient panel not captured as text in available sources.")}</b></div>`;
     const checked = (ic.sources || []).map((c) => `${c.url && /^https?:\/\//.test(c.url) ? `<a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.name)}</a>` : esc(c.name)}${c.is_brand_site ? " (brand site)" : ""} — ${esc(RES[c.result] || c.result)}`);
     const checkedLine = checked.length ? `<p class="kv src">Sources checked: ${checked.join(" · ")}</p>` : "";
     return `${pname(i)}<p><span class="verdict v-${v}">${VERDICT[v]}</span></p><p class="kv"><b>Headline claim</b></p><blockquote>${esc(x.headline_claim)}</blockquote>${panel}${checkedLine}<p>${esc(x.explanation)}</p>`;
