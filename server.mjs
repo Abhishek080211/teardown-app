@@ -531,6 +531,21 @@ function cleanIngredient(x = {}) {
 // A missing panel only counts as "not located" if the brand's website and at least one other source were checked.
 const evidenceOk = (e) => !!e.ingredient_panel || (e.sources_checked.length >= 2 && e.sources_checked.some((c) => c.is_brand_site));
 
+// Flag the checked sources that back the stated-ingredient claim, so "no formal panel" is not shown for a source
+// that does state the ingredient in a sentence. Match by link (ignoring query/trailing slash), then by exact name.
+const urlKey = (u) => { try { const x = new URL(u); return (x.hostname.replace(/^www\./, "") + x.pathname.replace(/\/+$/, "")).toLowerCase(); } catch { return null; } };
+function markStatedSources(checked, stated) {
+  const list = (checked || []).map((c) => ({ ...c, states_ingredient: false }));
+  if (!stated?.sources?.length) return list;
+  for (const s of stated.sources) {
+    const k = urlKey(s.url);
+    const hit = list.find((c) => (k && urlKey(c.url) === k) || norm(c.name) === norm(s.name));
+    if (hit) hit.states_ingredient = true;
+    else list.push({ name: s.name, url: s.url, is_brand_site: !!s.is_brand_site, result: "not_listed", states_ingredient: true }); // cited as a source, so it was checked
+  }
+  return list;
+}
+
 // "Brand and retailers consistently state: ..." wording, depending on who the supporting sources are.
 function statedMessage(stated) {
   const brand = stated.sources.some((c) => c.is_brand_site);
@@ -650,7 +665,7 @@ async function selectProducts({ brandA, brandB, category }, onStatus, sources) {
 }
 
 const ingredientLine = (ing) => {
-  const checked = ing.sources_checked.map((c) => `${c.name}${c.is_brand_site ? " (brand site)" : ""}: ${c.result}`).join("; ") || "none";
+  const checked = ing.sources_checked.map((c) => `${c.name}${c.is_brand_site ? " (brand site)" : ""}: ${c.states_ingredient && c.result === "not_listed" ? "no formal panel, states ingredient in text" : c.result}`).join("; ") || "none";
   if (ing.ingredient_panel) return `LOCKED INGREDIENT PANEL (verified, verbatim): ${ing.ingredient_panel}  [sources checked: ${checked}]`;
   if (ing.status === "stated")
     return `NO FORMAL LABEL PANEL CAPTURED, BUT SOURCES CONSISTENTLY STATE: "${ing.stated.statement}" (${ing.stated.sources.map((c) => c.name + (c.is_brand_site ? " [brand site]" : "")).join("; ")}). Judge the claim against this statement only as a consistent description, NOT as a verified label panel, and say so.  [sources checked: ${checked}]`;
@@ -663,6 +678,7 @@ async function generateReport({ brandA, brandB, category }, onStatus) {
   if (categoryInferred) category = await inferCategory({ brandA, brandB }, onStatus, sources);
   const sel = await selectProducts({ brandA, brandB, category }, onStatus, sources);
   const hero = sel.products.map((p) => computeHero(sel.metric, p));
+  sel.ingredients = sel.ingredients.map((ing) => ({ ...ing, sources_checked: markStatedSources(ing.sources_checked, ing.stated) }));
   const lock = sel.products
     .map((p, i) => `Brand ${"AB"[i]} (${p.brand}) LOCKED PRODUCT: "${p.product_name}" - unit size ${p.unit_size}; locked price ₹${p.price_inr} for ${p.pack_count} unit(s); ${sel.metric.spec_name} ${p.spec_value}${sel.metric.spec_unit} per unit; reference listing: ${p.retailer}${p.listing_url ? " " + p.listing_url : ""}\n  Computed hero metric (${sel.metric.unit_label}): ${hero[i].display}\n  ${ingredientLine(sel.ingredients[i])}`)
     .join("\n");

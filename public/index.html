@@ -303,6 +303,8 @@ function render(r) {
     return `<figure class="chart" role="img" aria-label="${esc(label)}"><figcaption class="chart-h"><span>${esc(hm.unit)}</span><span>Scale starts at zero</span></figcaption>${row("a", A, va, a.display)}${row("b", B, vb, b.display)}<p class="chart-note">${note}</p></figure>`;
   };
   const RES = { text: "panel found", image_only: "image only", not_listed: "no ingredient list", unreachable: "page unreadable" };
+  // A source that states the ingredient in a sentence is not "no ingredient list": it has no formal panel but does state it.
+  const resLabel = (c) => c.states_ingredient && c.result === "not_listed" ? "no formal panel, states ingredient in text" : c.states_ingredient && c.result === "image_only" ? "image only, states ingredient in text" : (RES[c.result] || c.result);
   const claim = (x = {}, i) => {
     const v = ["match","partial","mismatch","unverified","stated"].includes(x.verdict) ? x.verdict : "unverified";
     const ic = x.ingredient_check || {};
@@ -316,7 +318,7 @@ function render(r) {
       : st && ic.status === "stated"
         ? `<div class="panel stated"><b>No formal label panel captured.</b><br>${esc(who(st))} consistently state: <b>“${esc(st.statement)}”</b><br><span class="kv src">Sources: ${st.sources.map(srcLink).join(" · ")}</span></div>`
         : `<div class="panel notfound"><b>${esc(x.ingredient_note || "Ingredient panel not captured as text in available sources.")}</b></div>`;
-    const checked = (ic.sources || []).map((c) => `${c.url && /^https?:\/\//.test(c.url) ? `<a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.name)}</a>` : esc(c.name)}${c.is_brand_site ? " (brand site)" : ""} — ${esc(RES[c.result] || c.result)}`);
+    const checked = (ic.sources || []).map((c) => `${c.url && /^https?:\/\//.test(c.url) ? `<a href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.name)}</a>` : esc(c.name)}${c.is_brand_site ? " (brand site)" : ""} — ${esc(resLabel(c))}`);
     const checkedLine = checked.length ? `<p class="kv src">Sources checked: ${checked.join(" · ")}</p>` : "";
     return `${pname(i)}<p><span class="verdict v-${v}">${VERDICT[v]}</span></p><p class="kv"><b>Headline claim</b></p><blockquote>${esc(x.headline_claim)}</blockquote>${panel}${checkedLine}<p>${esc(x.explanation)}</p>`;
   };
