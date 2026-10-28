@@ -6,7 +6,7 @@
 <title>Teardown</title>
 <style>
 :root{--bg:#0a1220;--panel:#0f1b2f;--panel2:#142339;--inset:#0a1423;--chip:#16263f;--line:#223350;--text:#e8edf5;--soft:#cdd7e6;--mut:#8d9db6;
---acc:#f0a830;--brandA:#f0a830;--brandB:#8fb0dc;--onacc:#0a1220;
+--acc:#f0a830;--brandA:#f0a830;--brandB:#40c4ff;--link:#9fb1cc;--onacc:#0a1220;
 --serif:Georgia,"Iowan Old Style","Times New Roman",serif;--mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
@@ -91,8 +91,8 @@ section{margin:0 0 8px}
 .big{font-family:var(--mono);font-size:clamp(2.4rem,10vw,4rem);font-weight:700;letter-spacing:-.05em;line-height:1;color:var(--text)}
 .unit{color:var(--mut);font-family:var(--mono);font-size:.72rem;letter-spacing:.06em;margin:6px 0 10px}
 .verdict{display:inline-block;font-family:var(--mono);font-weight:700;font-size:.68rem;padding:3px 9px;border-radius:2px;color:#fff;text-transform:uppercase;letter-spacing:.1em}
-.v-stated{background:#2f7f86}.v-match{background:#2f8f66}.v-partial{background:#a9761a}.v-mismatch{background:#c0455f}.v-unverified{background:#56668a}
-blockquote{margin:8px 0;padding:8px 12px;border-left:3px solid #3a4f73;background:var(--inset);font-family:var(--serif);font-style:italic;color:var(--soft)}
+.v-stated{background:#2f7f86}.v-match{background:#267a56}.v-partial{background:#946510}.v-mismatch{background:#c0455f}.v-unverified{background:#56668a}
+blockquote{margin:8px 0;padding:8px 12px;border-left:3px solid #5a7299;background:var(--inset);font-family:var(--serif);font-style:italic;color:var(--soft)}
 .panel{font-size:.85rem;background:var(--inset);border:1px solid var(--line);border-radius:2px;padding:8px 10px;margin:8px 0;word-break:break-word;color:var(--soft)}
 .notfound{background:rgba(240,168,48,.08);border:1px dashed rgba(240,168,48,.65);color:var(--soft)}
 .stated{background:rgba(47,127,134,.12);border:1px solid rgba(47,127,134,.55);border-left:3px solid #2f7f86;color:var(--soft)}
@@ -101,6 +101,20 @@ table{width:100%;min-width:560px;border-collapse:collapse;background:var(--panel
 th,td{padding:12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top;font-size:.95rem}
 th{background:var(--panel2);font-family:var(--mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;color:var(--mut);font-weight:600}
 tr:last-child td{border-bottom:0}
+.ico{width:16px;height:16px;flex:none;vertical-align:-3px;margin-right:6px;color:var(--mut)}
+th .ico{width:14px;height:14px;vertical-align:-2px;margin-right:5px}
+.bico{display:flex;align-items:center;color:var(--text)}
+.bico .ico{width:24px;height:24px;margin:0;color:inherit}
+.chart{margin:14px 0 4px;padding:16px;background:var(--panel);border:1px solid var(--line);border-radius:2px}
+.chart-h{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-family:var(--mono);font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);margin-bottom:12px}
+.bar-row{display:grid;grid-template-columns:150px 1fr 96px;gap:12px;align-items:center;margin:10px 0}
+.bar-name{font-weight:600;font-size:.9rem;overflow-wrap:anywhere}
+.bar-track{background:var(--inset);border:1px solid var(--line);border-left:2px solid var(--text);height:26px;border-radius:0 2px 2px 0}
+.bar-fill{height:100%;min-width:2px}
+.bar-fill.a{background:var(--brandA)}.bar-fill.b{background:var(--brandB)}
+.bar-val{font-family:var(--mono);font-weight:700;font-size:1.05rem;text-align:right}
+.chart-note{margin:10px 0 0;font-size:.85rem;color:var(--mut)}
+@media(max-width:620px){.bar-row{grid-template-columns:1fr auto;gap:6px 12px}.bar-track{grid-column:1 / -1;grid-row:2}}
 .prod{background:var(--panel);border:1px solid var(--line);border-radius:2px;padding:14px 16px;margin:12px 0}
 .prod h3{font-family:var(--mono);font-size:.72rem;text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px;color:var(--mut);font-weight:600}
 .prod .pn{font-weight:700}
@@ -111,18 +125,18 @@ tr:last-child td{border-bottom:0}
 .hl{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--acc);border-radius:2px;padding:16px;color:var(--soft)}
 ol.moves{padding-left:22px;color:var(--soft)}ol.moves li{margin:8px 0}ol.moves li::marker{color:var(--acc);font-family:var(--mono);font-weight:700}
 .srcs{font-size:.8rem;color:var(--mut);word-break:break-all}
-.srcs a,.src a{color:#9fb1cc}
+.srcs a,.src a{color:var(--link)}
 .src{font-family:var(--mono);font-size:.72rem;letter-spacing:.04em}
 footer{margin:40px 0;color:var(--mut);font-size:.8rem}
 footer ul{padding-left:18px}
 @media print{
  /* PDF: light version of the same palette (saves ink); section bands stay navy */
- :root{--bg:#fff;--panel:#fff;--panel2:#eef1f6;--inset:#f3f5f9;--chip:#e8edf5;--line:#cfd6e2;--text:#0e1a2e;--soft:#243450;--mut:#55657f;--acc:#b9770e;--brandA:#b9770e;--brandB:#3d6aa8}
+ :root{--bg:#fff;--panel:#fff;--panel2:#eef1f6;--inset:#f3f5f9;--chip:#e8edf5;--line:#cfd6e2;--text:#0e1a2e;--soft:#243450;--mut:#55657f;--acc:#8f5900;--brandA:#8f5900;--brandB:#0369a1;--link:#3a4f73;--onacc:#fff}
  body{font-size:12px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
  .noprint{display:none!important}
  .band{margin:20px 0 10px;background:#0f1b2f;border-color:#0f1b2f;color:#fff}
- .band h2{color:#fff}.band small{color:#aab8cf}.band .n{color:#f0a830}
- .srcs a{color:#55657f}
+ .band h2{color:#fff}.band small{color:#aab8cf}.band .n{color:#f0a830}.band .bico{color:#fff}
+ 
  @page{margin:14mm}
 }
 </style>
@@ -232,8 +246,27 @@ const VERDICT = {match:"Claim holds", partial:"Partly holds", mismatch:"Mismatch
 const NF = '<span class="verdict v-unverified">Not verified</span>';
 const val = (v, fallback = "Not verified") => (v === null || v === undefined || v === "" ? `<i>${fallback}</i>` : esc(v));
 
+// Small line icons (inline SVG, currentColor) - no external assets.
+const ICONS = {
+  versus: '<circle cx="9" cy="12" r="5.5"/><circle cx="15" cy="12" r="5.5"/>',
+  trend: '<polyline points="3 17 9 11 13 15 21 7"/><polyline points="15 7 21 7 21 13"/>',
+  network: '<circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><line x1="11" y1="7.3" x2="6" y2="16.7"/><line x1="13" y1="7.3" x2="18" y2="16.7"/>',
+  bars: '<line x1="3" y1="20" x2="21" y2="20"/><rect x="5" y="11" width="3.5" height="9"/><rect x="10.3" y="5" width="3.5" height="15"/><rect x="15.6" y="13" width="3.5" height="7"/>',
+  shield: '<path d="M12 3 4.5 6v5.5c0 4.4 3.1 8 7.5 9.5 4.4-1.5 7.5-5.1 7.5-9.5V6z"/><polyline points="8.5 12 11 14.5 15.5 9.5"/>',
+  star: '<polygon points="12 3 14.8 9 21.3 9.8 16.5 14.2 17.8 20.7 12 17.4 6.2 20.7 7.5 14.2 2.7 9.8 9.2 9"/>',
+  whitespace: '<rect x="3" y="3" width="7.5" height="7.5"/><rect x="13.5" y="3" width="7.5" height="7.5"/><rect x="3" y="13.5" width="7.5" height="7.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" stroke-dasharray="2.2 2.2"/>',
+  flag: '<line x1="5" y1="21" x2="5" y2="4"/><path d="M5 4h11l-2 4 2 4H5"/>',
+  calendar: '<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><line x1="3.5" y1="10" x2="20.5" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/>',
+  briefcase: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M9 7V5.5A1.5 1.5 0 0 1 10.5 4h3A1.5 1.5 0 0 1 15 5.5V7"/><line x1="3" y1="13" x2="21" y2="13"/>',
+  coins: '<circle cx="12" cy="12" r="8.5"/><path d="M9 8h6M9 11h6M9.5 8c3.6 0 3.6 5 0 5H9l5 4"/>',
+  box: '<path d="M21 8 12 3 3 8v8l9 5 9-5z"/><polyline points="3 8 12 13 21 8"/><line x1="12" y1="13" x2="12" y2="21"/>',
+  message: '<path d="M4 5h16v11H9l-5 4z"/>',
+};
+const ico = (name, cls = "ico") => `<svg class="${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ""}</svg>`;
+const SECTION_ICON = { 1: "versus", 2: "trend", 3: "network", 4: "bars", 5: "shield", 6: "star", 7: "whitespace", 8: "flag" };
+
 function band(n, title, sub) {
-  return `<div class="band"><span class="n">${String(n).padStart(2, "0")}</span><div><h2>${esc(title)}</h2><small>${esc(sub)}</small></div></div>`;
+  return `<div class="band"><span class="n">${String(n).padStart(2, "0")}</span><span class="bico">${ico(SECTION_ICON[n])}</span><div><h2>${esc(title)}</h2><small>${esc(sub)}</small></div></div>`;
 }
 function two(a, b, fa, fb) { return `<div class="two"><div class="card a"><h3>${esc(a)}</h3>${fa}</div><div class="card b"><h3>${esc(b)}</h3>${fb}</div></div>`; }
 
@@ -242,18 +275,33 @@ function prodBlock(r) {
   if (!ps.length) return "";
   const li = (p, cls) => `<li><span class="${cls}">${esc(p.brand)}:</span> <span class="pn">${esc(p.product_name)}</span>${p.retailer ? ` <span class="kv">(${esc(p.retailer)})</span>` : ""}${p.switched ? `<div class="sw"><b>Product switched.</b> Locked product was “${esc(p.locked_name)}”. ${esc(p.switch_reason)}</div>` : ""}</li>`;
   const note = ps0.reused ? `Same products as the earlier run (locked ${new Date(ps0.selected_at).toLocaleDateString("en-IN")}).` : "Products chosen for this comparison and locked for future runs.";
-  return `<div class="prod"><h3>Products compared</h3><ul style="margin:0;padding-left:18px">${li(ps[0],"ca")}${li(ps[1],"cb")}</ul>${ps0.comparison_basis ? `<p class="kv" style="margin:8px 0 0">${esc(ps0.comparison_basis)}</p>` : ""}<p class="kv" style="margin:4px 0 0">${note}</p></div>`;
+  return `<div class="prod"><h3>${ico("box")}Products compared</h3><ul style="margin:0;padding-left:18px">${li(ps[0],"ca")}${li(ps[1],"cb")}</ul>${ps0.comparison_basis ? `<p class="kv" style="margin:8px 0 0">${esc(ps0.comparison_basis)}</p>` : ""}<p class="kv" style="margin:4px 0 0">${note}</p></div>`;
 }
 
 function render(r) {
   const A = r.brands?.[0]?.name || "Brand A", B = r.brands?.[1]?.name || "Brand B";
   const g = (k) => r[k] || {};
   const pos = g("positioning"), gr = g("growth"), ch = g("channels"), hm = g("hero_metric"), cl = g("claims_vs_reality"), se = g("sentiment"), ws = g("white_space"), tk = g("takeaway");
-  const growth = (x = {}) => `<p class="kv"><b>Founded:</b> ${val(x.founded)}</p><p class="kv"><b>Ownership:</b> ${val(x.ownership)}</p><p class="kv"><b>Funding:</b> ${val(x.funding)}</p><p>${esc(x.note)}</p>`;
+  const growth = (x = {}) => `<p class="kv"><b>${ico("calendar")}Founded:</b> ${val(x.founded)}</p><p class="kv"><b>${ico("briefcase")}Ownership:</b> ${val(x.ownership)}</p><p class="kv"><b>${ico("coins")}Funding:</b> ${val(x.funding)}</p><p>${esc(x.note)}</p>`;
   const chan = (x = {}) => `<p>${esc(x.summary)}</p>${(x.channels||[]).map((c)=>`<span class="pill">${esc(c)}</span>`).join("")}`;
   const pname = (i) => `<p class="pname">${esc((r.products||[])[i]?.product_name)}</p>`;
   const link = (ref, what) => !ref ? "" : `${esc(what)}: ${ref.url && /^https?:\/\//.test(ref.url) ? `<a href="${esc(ref.url)}" target="_blank" rel="noopener">${esc(ref.label)}</a>` : esc(ref.label)}`;
   const hero = (x = {}, i) => `${pname(i)}<div class="big">${val(x.display, "n/a")}</div><div class="unit">${esc(hm.unit)}</div><p class="kv">${esc(x.basis)}</p>${x.price_ref ? `<p class="kv src">${link(x.price_ref, "Price")} · ${link(x.spec_ref, x.spec_ref?.what ? x.spec_ref.what[0].toUpperCase() + x.spec_ref.what.slice(1) : "Spec")}</p>` : ""}`;
+  // Horizontal bars for the two computed hero values. Zero baseline, so bar lengths are honest ratios.
+  const heroChart = () => {
+    const a = hm.brand_a || {}, b = hm.brand_b || {};
+    const va = typeof a.value === "number" ? a.value : null, vb = typeof b.value === "number" ? b.value : null;
+    const max = Math.max(va ?? 0, vb ?? 0);
+    if (!(max > 0)) return "";
+    const row = (cls, name, v, disp) => `<div class="bar-row"><div class="bar-name ${cls === "a" ? "ca" : "cb"}">${esc(name)}</div><div class="bar-track"><div class="bar-fill ${cls}" style="width:${v === null ? 0 : Math.max(1, (v / max) * 100).toFixed(1)}%"></div></div><div class="bar-val">${v === null ? "n/a" : esc(disp)}</div></div>`;
+    let note = "Lower is better.";
+    if (va !== null && vb !== null && va !== vb) {
+      const [lo, hi, who] = va < vb ? [va, vb, A] : [vb, va, B];
+      note = `Lower is better. ${esc(who)} is ₹${(hi - lo).toFixed(2)} (${Math.round(((hi - lo) / hi) * 100)}%) lower.`;
+    } else if (va !== null && va === vb) note = "Lower is better. Both brands come out the same.";
+    const label = `${hm.unit}: ${A} ${va === null ? "not available" : a.display}, ${B} ${vb === null ? "not available" : b.display}. Lower is better.`;
+    return `<figure class="chart" role="img" aria-label="${esc(label)}"><figcaption class="chart-h"><span>${esc(hm.unit)}</span><span>Scale starts at zero</span></figcaption>${row("a", A, va, a.display)}${row("b", B, vb, b.display)}<p class="chart-note">${note}</p></figure>`;
+  };
   const RES = { text: "panel found", image_only: "image only", not_listed: "no ingredient list", unreachable: "page unreadable" };
   const claim = (x = {}, i) => {
     const v = ["match","partial","mismatch","unverified","stated"].includes(x.verdict) ? x.verdict : "unverified";
@@ -297,13 +345,14 @@ function render(r) {
 
   <section>${band(4,"Hero Metric",hm.name || "Per-unit cost")}
     ${two(A,B,hero(hm.brand_a,0),hero(hm.brand_b,1))}
+    ${heroChart()}
     <p class="lede">${esc(hm.takeaway)}</p></section>
 
   <section>${band(5,"Claims vs Ingredient Reality","Headline claim checked against the real label")}
     ${two(A,B,claim(cl.brand_a,0),claim(cl.brand_b,1))}</section>
 
   <section>${band(6,"Buyer Sentiment","Public ratings and review volume")}
-    <div class="tw"><table><thead><tr><th>Brand</th><th>Platform</th><th>Rating</th><th>Reviews</th><th>Notes</th></tr></thead><tbody>
+    <div class="tw"><table><thead><tr><th>Brand</th><th>Platform</th><th>${ico("star")}Rating</th><th>${ico("message")}Reviews</th><th>Notes</th></tr></thead><tbody>
     ${sent({...se.brand_a, name: A, product: (r.products||[])[0]?.product_name})}${sent({...se.brand_b, name: B, product: (r.products||[])[1]?.product_name})}</tbody></table></div></section>
 
   <section>${band(7,"Market White Space","The unclaimed pricing / positioning gap")}
